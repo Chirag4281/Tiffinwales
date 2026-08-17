@@ -6,14 +6,13 @@ workflows:
 
     environment:
       vars:
-        BUNDLE_ID: "com.tiffinwales.app"  # ← UPDATE THIS
-        BUILD_MODE: "release"
+        BUNDLE_ID: "com.tiffinwales.app"
       flutter: stable
       xcode: latest
       cocoapods: default
 
     integrations:
-      app_store_connect: "Codemagic"  # ← Your existing integration
+      app_store_connect: "Codemagic"  # ✅ Your correct integration name
 
     scripts:
       - name: Get dependencies
@@ -26,12 +25,13 @@ workflows:
           cd ios
           pod install --repo-update
           cd ..
+
       - name: List available certificates
         script: |
           security find-identity -v -p codesigning
+
       - name: Setup code signing
         script: |
-          # Use automatic code signing
           xcode-project use-profiles
 
       - name: Build IPA
@@ -45,4 +45,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # submit_to_app_store: false  # Uncomment when ready for production
