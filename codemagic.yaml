@@ -4,16 +4,20 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
 
+    integrations:
+      app_store_connect: "Codemagic"
+
     environment:
       vars:
         BUNDLE_ID: "com.tiffinwales.app"
-        TEAM_ID: "A636V85WH2"  # ← Add your Team ID (optional but recommended)
+        TEAM_ID: "A636V85WH2"
       flutter: stable
       xcode: latest
       cocoapods: default
 
-    integrations:
-      app_store_connect: "Codemagic"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.tiffinwales.app
 
     scripts:
       - name: Get dependencies
@@ -27,9 +31,8 @@ workflows:
           pod install --repo-update
           cd ..
 
-      - name: Setup automatic code signing
+      - name: Set up iOS code signing
         script: |
-          # This automatically creates certificates and profiles
           xcode-project use-profiles
 
       - name: Build IPA
