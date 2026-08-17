@@ -7,12 +7,13 @@ workflows:
     environment:
       vars:
         BUNDLE_ID: "com.tiffinwales.app"
+        TEAM_ID: "A636V85WH2"  # ← Add your Team ID (optional but recommended)
       flutter: stable
       xcode: latest
       cocoapods: default
 
     integrations:
-      app_store_connect: "Codemagic"  # ✅ Your correct integration name
+      app_store_connect: "Codemagic"
 
     scripts:
       - name: Get dependencies
@@ -26,12 +27,9 @@ workflows:
           pod install --repo-update
           cd ..
 
-      - name: List available certificates
+      - name: Setup automatic code signing
         script: |
-          security find-identity -v -p codesigning
-
-      - name: Setup code signing
-        script: |
+          # This automatically creates certificates and profiles
           xcode-project use-profiles
 
       - name: Build IPA
