@@ -1,0 +1,68 @@
+# Flutter/Dart
+.dart_tool/
+.build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.lock
+*.iml
+*.iws
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Android
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/.gradle/
+android/app/.idea/
+android/app/*.iml
+android/captures/
+
+# iOS
+ios/.idea/
+ios/Pods/
+ios/Podfile.lock
+ios/Runner/GeneratedPluginRegistrant.*
+ios/Flutter/App.framework/
+ios/Flutter/Engine/
+ios/Flutter/Flutter.podspec
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Generated.xcconfig
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+
+# Secrets
+*.key
+*.keystore
+*.jks
+key.properties
+.env
+.env.local
+*.pem
+*.cert
+*.crt
+
+# Logs
+logs/
+*.log
+pubspec.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Build outputs
+*.aab
+*.apk
+*.ipa
+*.dSYM.zip
