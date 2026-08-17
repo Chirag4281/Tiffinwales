@@ -12,7 +12,7 @@ workflows:
       cocoapods: default
 
     integrations:
-      app_store_connect: "Raj_Management_System"  # ← Your existing integration
+      app_store_connect: "Codemagic"  # ← Your existing integration
 
     scripts:
       - name: Get dependencies
