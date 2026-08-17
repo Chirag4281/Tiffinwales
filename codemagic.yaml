@@ -23,7 +23,9 @@ workflows:
 
       - name: Install pods
         script: |
-          cd ios && pod install && cd ..
+          cd ios
+          pod install --repo-update
+          cd ..
 
       - name: Setup signing
         script: |
