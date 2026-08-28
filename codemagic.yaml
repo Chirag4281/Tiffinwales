@@ -1,46 +1,50 @@
-
 workflows:
   ios-release:
     name: iOS Release Build - Tiffinwales
+
     instance_type: mac_mini_m2
     max_build_duration: 60
 
+    integrations:
+      app_store_connect: "Codemagic"
+
     environment:
-      vars:
-        BUNDLE_ID: "com.tiffinwales.app"
-        BUILD_MODE: "release"
       flutter: stable
       xcode: latest
       cocoapods: default
 
-    integrations:
-      app_store_connect: "Codemagic"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.tiffinwales.app
+
+      vars:
+        BUNDLE_ID: "com.tiffinwales.app"
 
     scripts:
 
       # ----------------------------------------
       # 1. Flutter dependencies
       # ----------------------------------------
-      - name: Get dependencies
+      - name: Get Flutter dependencies
         script: |
           flutter clean
           flutter pub get
 
       # ----------------------------------------
-      # 2. Force iOS 15 for CocoaPods
+      # 2. Set iOS deployment target
       # ----------------------------------------
-      - name: Configure iOS deployment target
+      - name: Set iOS deployment target
         script: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          podfile = Path("ios/Podfile")
+          path = Path("ios/Podfile")
 
-          if not podfile.exists():
+          if not path.exists():
               raise SystemExit("ERROR: ios/Podfile not found")
 
-          text = podfile.read_text()
+          text = path.read_text()
 
           pattern = r"platform\s*:ios,\s*['\"][^'\"]+['\"]"
 
@@ -54,50 +58,54 @@ workflows:
           else:
               text = "platform :ios, '15.0'\n\n" + text
 
-          podfile.write_text(text)
+          path.write_text(text)
 
-          print("iOS deployment target configured: 15.0")
+          print("iOS deployment target set to 15.0")
           PY
-
-          grep -n "platform :ios" ios/Podfile || true
 
       # ----------------------------------------
       # 3. Install CocoaPods
       # ----------------------------------------
-      - name: Install pods
+      - name: Install CocoaPods
         script: |
           cd ios
-          pod deintegrate || true
           pod install --repo-update
           cd ..
 
       # ----------------------------------------
-      # 4. Configure Codemagic signing
+      # 4. AUTOMATIC CODE SIGNING
       # ----------------------------------------
-      - name: Setup automatic signing
+      - name: Automatic iOS code signing
         script: |
-          echo "Configuring iOS code signing..."
+          echo "=========================================="
+          echo "AUTOMATIC CODE SIGNING"
+          echo "=========================================="
 
-          xcode-project use-profiles
+          xcode-project use-profiles \
+            --project ios/Runner.xcodeproj
 
       # ----------------------------------------
-      # 5. Show signing configuration
+      # 5. Verify signing
       # ----------------------------------------
-      - name: Verify signing configuration
+      - name: Verify signing
         script: |
-          echo "Bundle ID:"
-          echo "$BUNDLE_ID"
+          echo "=========================================="
+          echo "SIGNING CERTIFICATES"
+          echo "=========================================="
 
-          echo ""
-          echo "Provisioning profiles:"
-          ls -lah "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
-
-          echo ""
-          echo "Certificates:"
           security find-identity -v -p codesigning || true
 
+          echo ""
+          echo "=========================================="
+          echo "PROVISIONING PROFILES"
+          echo "=========================================="
+
+          ls -lah \
+            "$HOME/Library/MobileDevice/Provisioning Profiles/" \
+            || true
+
       # ----------------------------------------
-      # 6. Generate unique build number
+      # 6. Automatic build number
       # ----------------------------------------
       - name: Generate build number
         script: |
@@ -112,24 +120,31 @@ workflows:
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$CM_ENV"
 
       # ----------------------------------------
-      # 7. Build IPA
+      # 7. Build signed IPA
       # ----------------------------------------
       - name: Build IPA
         script: |
-          echo "Building Tiffinwales iOS IPA..."
+          echo "=========================================="
+          echo "BUILDING SIGNED IPA"
+          echo "=========================================="
+
           echo "Bundle ID: $BUNDLE_ID"
           echo "Build Number: $BUILD_NUMBER"
 
           flutter build ipa \
             --release \
-            --build-number="$BUILD_NUMBER"
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
 
       # ----------------------------------------
       # 8. Verify IPA
       # ----------------------------------------
       - name: Verify IPA
         script: |
-          echo "Generated IPA files:"
+          echo "=========================================="
+          echo "IPA OUTPUT"
+          echo "=========================================="
+
           ls -lah build/ios/ipa/
 
     artifacts:
@@ -139,4 +154,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-
