@@ -30,7 +30,7 @@ dependencies:
   intl: ^0.18.1
   url_launcher: ^6.2.1
   image_picker: ^1.0.4
-  google_sign_in: ^6.1.5
+
   # Payment
 
 

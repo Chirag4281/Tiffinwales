@@ -1504,9 +1504,8 @@ class _OrdersTabState extends State<OrdersTab> {
     }
   }
 
+  // In OrdersTab inside MasterAdminScreen
   Future<void> _loadOrders() async {
-    if (_selectedLocation == null) return;
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -1515,7 +1514,10 @@ class _OrdersTabState extends State<OrdersTab> {
     try {
       var request = http.MultipartRequest('POST', Uri.parse(ordersApiUrl));
       request.fields['action'] = 'get_orders';
-      request.fields['location_name'] = _selectedLocation!;
+      request.fields['user_type'] = 'admin';
+      request.fields['user_role'] = 'master'; // Master admin
+
+      // No email or location needed - shows all orders
 
       var response = await request.send();
       var responseBody = await response.stream.bytesToString();

@@ -3,12 +3,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../theme/app_theme.dart';
-
-// Import the single location screen
 import 'location_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? email;
+  final String? username;
+  final String? locationName;
+
+  const HomeScreen({
+    super.key,
+    this.email,
+    this.username,
+    this.locationName,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // API URL - Separate file for locations
   final String apiUrl = 'https://quantorra.co/tiffinwales/Locations.php';
 
   @override
@@ -30,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadLocations();
   }
 
-  // Load locations from database
   Future<void> _loadLocations() async {
     setState(() {
       _isLoading = true;
@@ -38,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Use form data to match your API pattern
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.fields['action'] = 'get_locations';
 
@@ -63,45 +67,24 @@ class _HomeScreenState extends State<HomeScreen> {
           _isLoading = false;
         });
       }
-    } on http.ClientException {
-      setState(() {
-        _errorMessage = 'Network error. Please check your internet connection.';
-        _isLoading = false;
-      });
-    } on FormatException {
-      setState(() {
-        _errorMessage = 'Invalid response from server.';
-        _isLoading = false;
-      });
     } catch (e) {
       setState(() {
-        _errorMessage = 'An error occurred: ${e.toString()}';
+        _errorMessage = 'An error occurred. Please try again.';
         _isLoading = false;
       });
     }
   }
 
-  // Navigation to single location screen with location data
   void _confirmAndNavigate() {
     if (_selectedLocationId == null || _selectedLocationName == null) return;
 
-    // Find the full location data
     final selectedLocation = _locations.firstWhere(
           (loc) => loc['id'].toString() == _selectedLocationId,
       orElse: () => {},
     );
 
-    if (selectedLocation.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location data not found'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    if (selectedLocation.isEmpty) return;
 
-    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -112,10 +95,10 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFB3D335).withOpacity(0.2),
+                  color: const Color(0xFF6366F1).withOpacity(0.15),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),
@@ -128,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 40,
                   height: 40,
                   child: CircularProgressIndicator(
-                    color: Color(0xFFB3D335),
+                    color: Color(0xFF6366F1),
                     strokeWidth: 3,
                   ),
                 ),
@@ -138,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2E4A00),
+                    color: const Color(0xFF1A202C),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -157,17 +140,16 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
-    // Simulate loading delay
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
-
-        // Navigate to LocationScreen with location data
+        Navigator.of(context).pop();
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => LocationScreen(
               locationName: selectedLocation['name'] ?? 'Unknown Location',
+              username: widget.username ?? 'User',
+              email: widget.email ?? '',
             ),
           ),
         );
@@ -177,467 +159,427 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color brandGreen = Color(0xFFB3D335);
-    const Color darkGreen = Color(0xFF2E4A00);
+    const Color primaryColor = Color(0xFF6366F1);
+    const Color secondaryColor = Color(0xFF8B5CF6);
+    const Color darkColor = Color(0xFF1A202C);
+    const Color lightColor = Color(0xFFF7FAFC);
+
+    final String displayName = widget.username ?? 'Guest';
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
+      backgroundColor: lightColor,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            // Background gradient
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFFE8F5E9),
-                      Colors.white,
-                      const Color(0xFFF1F8E9),
-                    ],
-                  ),
-                ),
-              ),
+            // Header Section
+            _buildHeader(displayName, primaryColor, darkColor),
+
+            // Content Section
+            Expanded(
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _errorMessage != null
+                  ? _buildErrorState(primaryColor)
+                  : _locations.isEmpty
+                  ? _buildEmptyState()
+                  : _buildLocationList(primaryColor, secondaryColor, darkColor),
             ),
 
-            // Floating background blobs
-            Positioned(
-              top: -80,
-              right: -80,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: brandGreen.withOpacity(0.10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: brandGreen.withOpacity(0.05),
-                      blurRadius: 100,
-                      spreadRadius: 30,
+            // Bottom Button
+            _buildBottomButton(primaryColor, darkColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==============================================
+  // BUILD METHODS
+  // ==============================================
+
+  Widget _buildHeader(String displayName, Color primaryColor, Color darkColor) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello, $displayName 👋',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.grey[600],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Where would you like to eat?',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: darkColor,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(20),
             ),
-            Positioned(
-              bottom: 100,
-              left: -100,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: darkGreen.withOpacity(0.06),
-                ),
-              ),
-            ),
-
-            // Main Content
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.only(top: 20, left: 24, right: 24, bottom: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Choose Your',
-                            style: GoogleFonts.poppins(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w300,
-                              color: const Color(0xFF1B3B1B),
-                            ),
-                          ),
-                          Text(
-                            'Kitchen',
-                            style: GoogleFonts.poppins(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              color: darkGreen,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Select your preferred cuisine location',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Logout button
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.4),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.logout_rounded, color: darkGreen),
-                          onPressed: () {
-                            // Navigate to login
-                            Navigator.pushReplacementNamed(context, '/login');
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                Icon(
+                  Icons.location_on_outlined,
+                  color: primaryColor,
+                  size: 16,
                 ),
-
-                // Locations List or Loading/Error
-                _isLoading
-                    ? const Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: Color(0xFFB3D335),
-                        ),
-                        SizedBox(height: 16),
-                        Text('Loading locations...'),
-                      ],
-                    ),
-                  ),
-                )
-                    : _errorMessage != null
-                    ? Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 60,
-                          color: Colors.red[300],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: _loadLocations,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: brandGreen,
-                            foregroundColor: darkGreen,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 30,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                    : _locations.isEmpty
-                    ? const Expanded(
-                  child: Center(
-                    child: Text('No locations available'),
-                  ),
-                )
-                    : Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                    itemCount: _locations.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final location = _locations[index];
-                      final locationName = location['name'] ?? 'Unknown Location';
-                      final isSelected = _selectedLocationId == location['id'].toString();
-
-                      return TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0.0, end: 1.0),
-                        duration: Duration(milliseconds: 500 + (index * 150)),
-                        curve: Curves.easeOutQuart,
-                        builder: (context, value, child) {
-                          return Transform.translate(
-                            offset: Offset(0, 40 * (1 - value)),
-                            child: Opacity(
-                              opacity: value,
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutCubic,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: isSelected
-                                ? [
-                              BoxShadow(
-                                color: brandGreen.withOpacity(0.3),
-                                blurRadius: 25,
-                                offset: const Offset(0, 10),
-                              ),
-                            ]
-                                : [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 15,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white.withOpacity(0.95)
-                                  : Colors.white.withOpacity(0.65),
-                              borderRadius: BorderRadius.circular(26),
-                              border: Border.all(
-                                color: isSelected
-                                    ? brandGreen
-                                    : Colors.white.withOpacity(0.5),
-                                width: isSelected ? 2.5 : 1.5,
-                              ),
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  isSelected
-                                      ? Colors.white.withOpacity(0.95)
-                                      : Colors.white.withOpacity(0.8),
-                                  isSelected
-                                      ? Colors.white.withOpacity(0.9)
-                                      : Colors.white.withOpacity(0.4),
-                                ],
-                              ),
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(26),
-                                onTap: () {
-                                  setState(() {
-                                    _selectedLocationId = location['id'].toString();
-                                    _selectedLocationName = locationName;
-                                  });
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Row(
-                                    children: [
-                                      // Animated Circle Icon
-                                      AnimatedContainer(
-                                        duration: const Duration(milliseconds: 300),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isSelected
-                                              ? brandGreen
-                                              : Colors.grey[200],
-                                        ),
-                                        child: Icon(
-                                          isSelected
-                                              ? Icons.check_circle_rounded
-                                              : Icons.restaurant_outlined,
-                                          color: isSelected ? Colors.white : Colors.grey[500],
-                                          size: 28,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-
-                                      // Location Text
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              locationName,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 17,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w600
-                                                    : FontWeight.w500,
-                                                color: isSelected
-                                                    ? darkGreen
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                            if (isSelected) ...[
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '✓ Ready for delivery',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: brandGreen,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-
-                                      // Glass Arrow
-                                      AnimatedContainer(
-                                        duration: const Duration(milliseconds: 300),
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isSelected
-                                              ? brandGreen.withOpacity(0.1)
-                                              : Colors.transparent,
-                                        ),
-                                        child: Icon(
-                                          Icons.arrow_forward_ios_rounded,
-                                          color: isSelected
-                                              ? brandGreen
-                                              : Colors.grey[400],
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // Confirm Button
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: AnimatedScale(
-                    scale: _selectedLocationId != null ? 1.0 : 0.95,
-                    duration: const Duration(milliseconds: 400),
-                    child: AnimatedOpacity(
-                      opacity: _selectedLocationId != null ? 1.0 : 0.5,
-                      duration: const Duration(milliseconds: 400),
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 1.0, end: 1.05),
-                        duration: const Duration(seconds: 2),
-                        curve: Curves.easeInOut,
-                        builder: (context, pulseValue, child) {
-                          return Transform.scale(
-                            scale: _selectedLocationId != null ? pulseValue : 1.0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(60),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: brandGreen.withOpacity(_selectedLocationId != null ? 0.25 : 0.05),
-                                    blurRadius: 40 * (_selectedLocationId != null ? pulseValue : 1.0),
-                                    spreadRadius: 10,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 15),
-                                  ),
-                                ],
-                              ),
-                              child: ElevatedButton(
-                                onPressed: _selectedLocationId == null
-                                    ? null
-                                    : _confirmAndNavigate,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _selectedLocationId != null
-                                      ? brandGreen.withOpacity(0.9)
-                                      : Colors.grey[300],
-                                  foregroundColor: _selectedLocationId != null
-                                      ? darkGreen
-                                      : Colors.grey[600],
-                                  padding: const EdgeInsets.symmetric(vertical: 22),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(60),
-                                  ),
-                                  elevation: 0,
-                                  overlayColor: Colors.white.withOpacity(0.2),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    if (_selectedLocationId != null) ...[
-                                      Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.white.withOpacity(0.8),
-                                              blurRadius: 10,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                    ],
-                                    Text(
-                                      _selectedLocationId != null
-                                          ? 'Confirm & Start Ordering'
-                                          : 'Select a location to begin',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    if (_selectedLocationId != null) ...[
-                                      const SizedBox(width: 8),
-                                      const Icon(Icons.arrow_forward_rounded, size: 20),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                const SizedBox(width: 6),
+                Text(
+                  '${_locations.length} Locations Available',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: primaryColor,
                   ),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            color: Color(0xFF6366F1),
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Finding locations near you...',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(Color primaryColor) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red[400],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Oops! Something went wrong',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A202C),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Unable to load locations',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadLocations,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(
+                'Try Again',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.store_outlined,
+            size: 64,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No locations available',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationList(Color primaryColor, Color secondaryColor, Color darkColor) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      itemCount: _locations.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final location = _locations[index];
+        final locationName = location['name'] ?? 'Unknown Location';
+        final isSelected = _selectedLocationId == location['id'].toString();
+
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: Duration(milliseconds: 300 + (index * 80)),
+          curve: Curves.easeOutQuart,
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(30 * (1 - value), 0),
+              child: Opacity(
+                opacity: value,
+                child: child,
+              ),
+            );
+          },
+          child: _buildLocationCard(
+            locationName: locationName,
+            isSelected: isSelected,
+            primaryColor: primaryColor,
+            secondaryColor: secondaryColor,
+            darkColor: darkColor,
+            onTap: () {
+              setState(() {
+                _selectedLocationId = location['id'].toString();
+                _selectedLocationName = locationName;
+              });
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLocationCard({
+    required String locationName,
+    required bool isSelected,
+    required Color primaryColor,
+    required Color secondaryColor,
+    required Color darkColor,
+    required VoidCallback onTap,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: isSelected ? primaryColor : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? primaryColor : Colors.grey[200]!,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isSelected
+                ? primaryColor.withOpacity(0.2)
+                : Colors.black.withOpacity(0.04),
+            blurRadius: isSelected ? 20 : 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.2)
+                        : primaryColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isSelected ? Icons.check_circle_rounded : Icons.storefront_outlined,
+                    color: isSelected ? Colors.white : primaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Name
+                Expanded(
+                  child: Text(
+                    locationName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? Colors.white : darkColor,
+                    ),
+                  ),
+                ),
+
+                // Arrow
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: isSelected ? Colors.white.withOpacity(0.8) : Colors.grey[400],
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomButton(Color primaryColor, Color darkColor) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              primaryColor,
+              const Color(0xFF8B5CF6),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(_selectedLocationId != null ? 0.3 : 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: _selectedLocationId == null ? null : _confirmAndNavigate,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            disabledBackgroundColor: Colors.grey[300],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_selectedLocationId != null) ...[
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Text(
+                _selectedLocationId != null
+                    ? 'Start Ordering'
+                    : 'Select a Location to Continue',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              if (_selectedLocationId != null) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_rounded, size: 20),
+              ],
+            ],
+          ),
         ),
       ),
     );
