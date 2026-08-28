@@ -4,6 +4,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
 
+    integrations:
+      app_store_connect: "Codemagic"
+
     environment:
       flutter: stable
       xcode: latest
@@ -17,14 +20,46 @@ workflows:
         distribution_type: app_store
         bundle_identifier: "com.tiffinwales.app"
 
-    integrations:
-      app_store_connect: "Codemagic"
-
     scripts:
-      - name: Get dependencies
+      - name: Get Flutter dependencies
         script: |
           flutter clean
           flutter pub get
+
+      - name: Set iOS deployment target
+        script: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          podfile = Path("ios/Podfile")
+
+          if podfile.exists():
+              text = podfile.read_text()
+
+              import re
+
+              if re.search(r"^\s*platform\s*:ios", text, re.MULTILINE):
+                  text = re.sub(
+                      r"^\s*platform\s*:ios.*$",
+                      "platform :ios, '15.0'",
+                      text,
+                      flags=re.MULTILINE
+                  )
+              else:
+                  text = "platform :ios, '15.0'\n" + text
+
+              podfile.write_text(text)
+
+          project = Path("ios/Runner.xcodeproj/project.pbxproj")
+
+          if project.exists():
+              text = project.read_text()
+              text = text.replace(
+                  "IPHONEOS_DEPLOYMENT_TARGET = 13.0;",
+                  "IPHONEOS_DEPLOYMENT_TARGET = 15.0;"
+              )
+              project.write_text(text)
+          PY
 
       - name: Install CocoaPods
         script: |
@@ -32,12 +67,31 @@ workflows:
           pod install --repo-update
           cd ..
 
+      - name: Set up automatic iOS code signing
+        script: |
+          xcode-project use-profiles \
+            --project ios/Runner.xcodeproj
+
+      - name: Verify signing configuration
+        script: |
+          echo "=== Bundle ID ==="
+          xcode-project detect-bundle-id
+
+          echo "=== Installed provisioning profiles ==="
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
+
+          echo "=== Installed certificates ==="
+          security find-identity -v -p codesigning || true
+
       - name: Build IPA
         script: |
-          flutter build ipa --release
+          flutter build ipa \
+            --release \
+            --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
 
     publishing:
       app_store_connect:
