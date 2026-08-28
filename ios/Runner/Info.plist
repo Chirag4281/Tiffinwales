@@ -59,18 +59,7 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 
-	<!-- Google Sign-In Configuration (if using) -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.YOUR_GOOGLE_CLIENT_ID</string>
-			</array>
-		</dict>
-	</array>
+	
 
 	<!-- App Transport Security -->
 	<key>NSAppTransportSecurity</key>
