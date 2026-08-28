@@ -4,24 +4,20 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
 
-    integrations:
-      app_store_connect: "Codemagic"
-
     environment:
+      vars:
+        BUNDLE_ID: "com.tiffinwales.app"
+        BUILD_MODE: "release"
       flutter: stable
       xcode: latest
       cocoapods: default
 
-      vars:
-        BUNDLE_ID: "com.tiffinwales.app"
-        BUILD_MODE: "release"
-
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: "com.tiffinwales.app"
+    integrations:
+      app_store_connect: "Codemagic"
 
     scripts:
-      - name: Get Flutter dependencies
+
+      - name: Get dependencies
         script: |
           flutter clean
           flutter pub get
@@ -36,65 +32,62 @@ workflows:
           if podfile.exists():
               text = podfile.read_text()
 
-              import re
+              if "platform :ios" not in text:
+                  text = "platform :ios, '15.0'\n\n" + text
 
-              if re.search(r"^\s*platform\s*:ios", text, re.MULTILINE):
+              else:
+                  import re
                   text = re.sub(
-                      r"^\s*platform\s*:ios.*$",
+                      r"platform\s+:ios,\s*['\"][^'\"]+['\"]",
                       "platform :ios, '15.0'",
                       text,
-                      flags=re.MULTILINE
+                      count=1
                   )
-              else:
-                  text = "platform :ios, '15.0'\n" + text
 
               podfile.write_text(text)
-
-          project = Path("ios/Runner.xcodeproj/project.pbxproj")
-
-          if project.exists():
-              text = project.read_text()
-              text = text.replace(
-                  "IPHONEOS_DEPLOYMENT_TARGET = 13.0;",
-                  "IPHONEOS_DEPLOYMENT_TARGET = 15.0;"
-              )
-              project.write_text(text)
           PY
 
-      - name: Install CocoaPods
+      - name: Install pods
         script: |
           cd ios
           pod install --repo-update
           cd ..
 
-      - name: Set up automatic iOS code signing
+      - name: Automatic code signing
         script: |
-          xcode-project use-profiles \
-            --project ios/Runner.xcodeproj
+          xcode-project use-profiles
 
-      - name: Verify signing configuration
+      - name: Set automatic signing
         script: |
-          echo "=== Bundle ID ==="
-          xcode-project detect-bundle-id
+          xcode-project set-code-signing \
+            --project ios/Runner.xcodeproj \
+            --team-id "$CM_TEAM_ID" \
+            --bundle-id "$BUNDLE_ID" \
+            --build-settings CODE_SIGN_STYLE=Automatic
 
-          echo "=== Installed provisioning profiles ==="
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
-
-          echo "=== Installed certificates ==="
-          security find-identity -v -p codesigning || true
-
-      - name: Build IPA
+      - name: Set unique build number
         script: |
+          BUILD_NUMBER="${BUILD_NUMBER:-$CM_BUILD_ID}"
+
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=$(date +%s)
+          fi
+
+          echo "Using iOS build number: $BUILD_NUMBER"
+
           flutter build ipa \
             --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --build-number="$BUILD_NUMBER"
+
+      - name: Verify archive
+        script: |
+          echo "IPA files:"
+          ls -lah build/ios/ipa/
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
 
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: false
