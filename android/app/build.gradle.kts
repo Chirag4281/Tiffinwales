@@ -6,13 +6,16 @@ plugins {
 }
 
 android {
-    namespace = "com.example.tiffinwaless"
+    namespace = "com.tiffinwales.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+
+        // ✅ FIX: Enable core library desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -42,3 +45,18 @@ android {
 flutter {
     source = "../.."
 }
+
+// ==============================================
+// ✅ FIXED: Firebase Dependencies with Desugaring
+// ==============================================
+dependencies {
+    // ✅ FIX: Add core library desugaring dependency
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    // Firebase dependencies
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+    implementation("com.google.firebase:firebase-core:21.1.1")
+}
+
+// ✅ Apply Google Services plugin
+apply(plugin = "com.google.gms.google-services")

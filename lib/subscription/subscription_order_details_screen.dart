@@ -23,6 +23,7 @@ class SubscriptionOrderDetailsScreen extends StatefulWidget {
 
 class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetailsScreen> {
   List<Map<String, dynamic>> _orders = [];
+  List<String> _deliveredDishes = [];
   bool _isLoading = true;
   String? _error;
 
@@ -30,6 +31,7 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
   void initState() {
     super.initState();
     _loadOrders();
+    _loadDeliveredDishes();
   }
 
   Future<void> _loadOrders() async {
@@ -63,6 +65,42 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
     }
   }
 
+  // ==============================================
+  // NEW: Load delivered dishes
+  // ==============================================
+  Future<void> _loadDeliveredDishes() async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://quantorra.co/tiffinwales/SubscriptionManager.php'),
+        body: {
+          'action': 'get_delivered_dishes',
+          'subscription_id': widget.subscription.id.toString(),
+        },
+      );
+
+      var data = json.decode(response.body);
+
+      if (data['status'] == 'success' && data['data'] != null) {
+        final List<dynamic> deliveredData = data['data'];
+        setState(() {
+          _deliveredDishes = deliveredData
+              .map((item) => item['dish_name']?.toString() ?? '')
+              .where((name) => name.isNotEmpty)
+              .toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading delivered dishes: $e');
+    }
+  }
+
+  // ==============================================
+  // Helper: Check if dish is delivered
+  // ==============================================
+  bool _isDishDelivered(String dishName) {
+    return _deliveredDishes.contains(dishName);
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF6366F1);
@@ -91,6 +129,15 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
           ),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF6366F1)),
+            onPressed: () {
+              _loadOrders();
+              _loadDeliveredDishes();
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -112,7 +159,10 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadOrders,
+              onPressed: () {
+                _loadOrders();
+                _loadDeliveredDishes();
+              },
               child: const Text('Retry'),
             ),
           ],
@@ -130,7 +180,10 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
         ),
       )
           : RefreshIndicator(
-        onRefresh: _loadOrders,
+        onRefresh: () async {
+          await _loadOrders();
+          await _loadDeliveredDishes();
+        },
         child: ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: _orders.length,
@@ -142,7 +195,9 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
       ),
     );
   }
+// Add this method to show delivery instances
 
+ 
   Widget _buildOrderCard(Map<String, dynamic> order, Color primaryColor, Color darkColor) {
     final status = order['status']?.toString() ?? 'pending';
     final statusColor = _getStatusColor(status);
@@ -162,6 +217,12 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
         } catch (e) {}
       }
     }
+
+    // Calculate delivered count
+    final deliveredCount = _deliveredDishes.length;
+    final totalDishes = widget.subscription.plan.durationDays;
+    final remainingDishes = totalDishes - deliveredCount;
+    final progress = totalDishes > 0 ? deliveredCount / totalDishes : 0.0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -238,6 +299,73 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
             ),
             const SizedBox(height: 12),
 
+            // ==============================================
+            // NEW: Delivery Progress Section
+            // ==============================================
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.05),
+                    primaryColor.withOpacity(0.02),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: primaryColor.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Delivery Progress',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: darkColor,
+                        ),
+                      ),
+                      Text(
+                        '$deliveredCount / $totalDishes',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      backgroundColor: Colors.grey[200],
+                      color: progress >= 1.0 ? Colors.green : primaryColor,
+                      minHeight: 6,
+                    ),
+                  ),
+                  Text(
+                    progress >= 1.0
+                        ? '✅ All dishes delivered!'
+                        : '$remainingDishes dish${remainingDishes > 1 ? 'es' : ''} remaining',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: progress >= 1.0 ? Colors.green : Colors.grey[500],
+                      fontWeight: progress >= 1.0 ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Delivery Details
             Container(
               padding: const EdgeInsets.all(12),
@@ -301,7 +429,9 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
             ),
             const SizedBox(height: 12),
 
-            // Meal Details
+            // ==============================================
+            // UPDATED: Selected Dishes with Delivery Status
+            // ==============================================
             if (dishes.isNotEmpty) ...[
               Text(
                 'Selected Dishes',
@@ -316,18 +446,53 @@ class _SubscriptionOrderDetailsScreenState extends State<SubscriptionOrderDetail
                 spacing: 6,
                 runSpacing: 6,
                 children: dishes.map((dish) {
+                  final isDelivered = _isDishDelivered(dish);
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      dish,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: primaryColor,
+                      gradient: isDelivered
+                          ? const LinearGradient(
+                        colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+                      )
+                          : LinearGradient(
+                        colors: [
+                          primaryColor.withOpacity(0.1),
+                          primaryColor.withOpacity(0.05),
+                        ],
                       ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDelivered
+                            ? const Color(0xFF22C55E)
+                            : primaryColor.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isDelivered)
+                          const Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        if (isDelivered) const SizedBox(width: 4),
+                        Text(
+                          dish,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: isDelivered ? FontWeight.w600 : FontWeight.w500,
+                            color: isDelivered ? Colors.white : primaryColor,
+                          ),
+                        ),
+                        if (!isDelivered)
+                          const Icon(
+                            Icons.pending,
+                            color: Colors.grey,
+                            size: 10,
+                          ),
+                      ],
                     ),
                   );
                 }).toList(),

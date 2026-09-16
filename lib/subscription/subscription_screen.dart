@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:tiffinwales/screens/subscription_order_details_screen.dart';
+import 'package:tiffinwales/subscription/subscription_order_details_screen.dart';
 import '../models/subscription_models.dart';
 import '../services/subscription_service.dart';
 import 'subscription_order_screen.dart';
-import 'subscription_list_screen.dart';
+import '../subscription/subscription_list_screen.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   final String locationName;
@@ -80,7 +80,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
         },
       );
 
+      // Debug: Print the response
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      // Check if response is empty
+      if (response.body.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Empty response from server';
+        });
+        return;
+      }
+
       var data = json.decode(response.body);
+
+      // Debug: Print parsed data
+      print('Parsed data: $data');
 
       if (data['status'] == 'success' && data['data'] != null) {
         final List<dynamic> subscriptionsData = data['data'];
@@ -89,6 +105,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
           final List<UserSubscription> parsedSubscriptions = [];
 
           for (var item in subscriptionsData) {
+            // Safely parse plan data
             final plan = SubscriptionPlan(
               id: item['plan_id'] as int? ?? 0,
               locationName: item['location_name']?.toString() ?? widget.locationName,
@@ -100,7 +117,35 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
               maxDishes: int.tryParse(item['max_dishes']?.toString() ?? '0') ?? 0,
             );
 
-            final subscription = UserSubscription.fromJson(item, plan);
+            // Safely parse delivered count
+            int deliveredCount = 0;
+            if (item['delivered_count'] != null) {
+              deliveredCount = int.tryParse(item['delivered_count'].toString()) ?? 0;
+            }
+
+            // Create subscription with safe values
+            final subscription = UserSubscription(
+              id: item['id'] as int? ?? 0,
+              userEmail: item['user_email']?.toString() ?? widget.userEmail,
+              locationName: item['location_name']?.toString() ?? widget.locationName,
+              plan: plan,
+              mealType: item['meal_type']?.toString() ?? 'veg',
+              breadType: item['bread_type']?.toString() ?? 'naan',
+              spiceLevel: item['spice_level']?.toString() ?? 'mild',
+              selectedDishes: _parseSelectedDishes(item['selected_dishes']),
+              totalPrice: double.tryParse(item['total_price']?.toString() ?? '0') ?? 0,
+              deliveryOption: item['delivery_option']?.toString() ?? 'delivery',
+              deliveryDate: _parseDate(item['delivery_date']),
+              deliveryTimeSlot: item['delivery_time_slot']?.toString() ?? '',
+              specialInstructions: item['special_instructions']?.toString() ?? '',
+              startDate: _parseDate(item['start_date']),
+              endDate: _parseDate(item['end_date']),
+              daysRemaining: int.tryParse(item['days_remaining']?.toString() ?? '0') ?? 0,
+              status: item['status']?.toString() ?? 'pending',
+              orderCount: int.tryParse(item['order_count']?.toString() ?? '0') ?? 0,
+              deliveredCount: deliveredCount,
+            );
+
             parsedSubscriptions.add(subscription);
           }
 
@@ -114,36 +159,26 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
           _subscriptions = uniqueMap.values.toList();
           _subscriptions.sort((a, b) => b.startDate.compareTo(a.startDate));
 
+          // Update active subscriptions
           _activeSubscriptions = _subscriptions.where((sub) {
-            return sub.status == 'active' ||
-                (sub.status == 'pending' && sub.daysRemaining > 0);
-          }).toList();
+            // Calculate days remaining from delivered dishes
+            final deliveredCount = sub.deliveredCount ?? 0;
+            final totalDays = sub.plan.durationDays;
+            final daysRemaining = totalDays - deliveredCount;
 
-          for (int i = 0; i < _activeSubscriptions.length; i++) {
-            if (_activeSubscriptions[i].status == 'pending') {
-              final sub = _activeSubscriptions[i];
-              _activeSubscriptions[i] = UserSubscription(
-                id: sub.id,
-                userEmail: sub.userEmail,
-                locationName: sub.locationName,
-                plan: sub.plan,
-                mealType: sub.mealType,
-                breadType: sub.breadType,
-                spiceLevel: sub.spiceLevel,
-                selectedDishes: sub.selectedDishes,
-                totalPrice: sub.totalPrice,
-                deliveryOption: sub.deliveryOption,
-                deliveryDate: sub.deliveryDate,
-                deliveryTimeSlot: sub.deliveryTimeSlot,
-                specialInstructions: sub.specialInstructions,
-                startDate: sub.startDate,
-                endDate: sub.endDate,
-                daysRemaining: sub.daysRemaining,
-                status: 'active',
-                orderCount: sub.orderCount,
-              );
+            // Update subscription days remaining
+            sub.daysRemaining = daysRemaining;
+
+            // Update status based on days remaining
+            if (sub.status == 'pending' && daysRemaining > 0) {
+              sub.status = 'active';
+            } else if (sub.status == 'active' && daysRemaining <= 0) {
+              sub.status = 'completed';
             }
-          }
+
+            return sub.status == 'active' ||
+                (sub.status == 'pending' && daysRemaining > 0);
+          }).toList();
 
           setState(() {
             _isLoading = false;
@@ -158,6 +193,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
         _subscriptions = [];
       });
     } catch (e) {
+      print('Error loading subscriptions: $e');
       setState(() {
         _isLoading = false;
         _error = e.toString();
@@ -165,13 +201,57 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
     }
   }
 
+// ==============================================
+// HELPER: Parse selected dishes safely
+// ==============================================
+  List<String> _parseSelectedDishes(dynamic selectedDishes) {
+    if (selectedDishes == null) return [];
+
+    if (selectedDishes is List) {
+      return List<String>.from(selectedDishes);
+    }
+
+    if (selectedDishes is String) {
+      // Try JSON parsing first
+      try {
+        final decoded = jsonDecode(selectedDishes);
+        if (decoded is List) {
+          return List<String>.from(decoded);
+        }
+      } catch (e) {
+        // If it's a comma-separated string
+        if (selectedDishes.contains(',')) {
+          return selectedDishes.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        } else if (selectedDishes.isNotEmpty) {
+          return [selectedDishes];
+        }
+      }
+    }
+
+    return [];
+  }
+
+// ==============================================
+// HELPER: Parse date safely
+// ==============================================
+  DateTime _parseDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty || dateString == '0000-00-00') {
+      return DateTime.now();
+    }
+    try {
+      return DateTime.parse(dateString);
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
+    const Color primaryColor = Color(0xFFF97316);   // Logo orange
+    const Color darkColor = Color(0xFF1C1C1E);       // Logo charcoal
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
         child: _isLoading
             ? _buildLoadingState()
@@ -223,7 +303,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -255,7 +334,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.refresh, color: Color(0xFF6366F1), size: 20),
+              child: const Icon(Icons.refresh, color: Color(0xFFF97316), size: 20),
             ),
           ),
         ],
@@ -276,11 +355,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
             height: 60,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.1),
+              color: const Color(0xFFF97316).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: const CircularProgressIndicator(
-              color: Color(0xFF6366F1),
+              color: Color(0xFFF97316),
               strokeWidth: 3,
             ),
           ),
@@ -301,8 +380,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
   // ERROR STATE
   // ==============================================
   Widget _buildErrorState() {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
 
     return Center(
       child: Padding(
@@ -379,7 +458,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  colors: [Color(0xFFF97316), Color(0xFFEA580C)],
                 ),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -413,20 +492,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
   Widget _buildPremiumSubscriptionCard(UserSubscription subscription, Color primaryColor, Color darkColor) {
     final plan = subscription.plan;
     final totalDays = plan.durationDays;
-    final usedDays = totalDays - subscription.daysRemaining;
+    final deliveredCount = subscription.deliveredCount ?? 0;
+    final usedDays = deliveredCount; // Days used = number of dishes delivered
+    final daysRemaining = totalDays - deliveredCount; // Days remaining = total - delivered
     final double progress = totalDays > 0 ? usedDays / totalDays : 0.0;
 
-    List<Color> gradientColors = [primaryColor, const Color(0xFF8B5CF6)];
+    // Tiffin Wales orange brand gradients
+    List<Color> gradientColors = [primaryColor, const Color(0xFFEA580C)];
     if (plan.planType == '3days') {
-      gradientColors = [const Color(0xFF667EEA), const Color(0xFF764BA2)];
+      gradientColors = [const Color(0xFFF97316), const Color(0xFFFB923C)];
     } else if (plan.planType == '5days') {
-      gradientColors = [const Color(0xFFF093FB), const Color(0xFFF5576C)];
+      gradientColors = [const Color(0xFFEA580C), const Color(0xFFF97316)];
     } else if (plan.planType == '7days') {
-      gradientColors = [const Color(0xFF4FACFE), const Color(0xFF00F2FE)];
+      gradientColors = [const Color(0xFFF97316), const Color(0xFFEA580C)];
     } else if (plan.planType == '15days') {
-      gradientColors = [const Color(0xFF43E97B), const Color(0xFF38F9D7)];
+      gradientColors = [const Color(0xFFEA580C), const Color(0xFFC2410C)];
     } else if (plan.planType == '30days') {
-      gradientColors = [const Color(0xFFFA709A), const Color(0xFFFEE140)];
+      gradientColors = [const Color(0xFFF97316), const Color(0xFFC2410C)];
     }
 
     return Container(
@@ -501,7 +583,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${subscription.daysRemaining}d',
+                      '${daysRemaining}d',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -526,19 +608,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: daysRemaining > 0 ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.check_circle, color: Colors.green, size: 12),
+                            Icon(
+                              daysRemaining > 0 ? Icons.check_circle : Icons.check_circle_outline,
+                              color: daysRemaining > 0 ? Colors.green : Colors.grey,
+                              size: 12,
+                            ),
                             const SizedBox(width: 4),
                             Text(
-                              'Active',
+                              daysRemaining > 0 ? 'Active' : 'Completed',
                               style: GoogleFonts.poppins(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.green,
+                                color: daysRemaining > 0 ? Colors.green : Colors.grey,
                               ),
                             ),
                           ],
@@ -636,21 +722,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => _showCancelDialog(subscription),
+                          onPressed: daysRemaining > 0 ? () => _showCancelDialog(subscription) : null,
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
-                            side: BorderSide(color: Colors.red.withOpacity(0.5), width: 1.5),
+                            side: BorderSide(
+                              color: daysRemaining > 0 ? Colors.red.withOpacity(0.5) : Colors.grey.withOpacity(0.3),
+                              width: 1.5,
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: Text(
-                            'Cancel',
+                            daysRemaining > 0 ? 'Cancel' : 'Completed',
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
-                              color: Colors.red,
+                              color: daysRemaining > 0 ? Colors.red : Colors.grey,
                             ),
                           ),
                         ),
@@ -717,7 +806,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
           end: Alignment.bottomRight,
           colors: [
             Colors.white,
-            const Color(0xFFF5F3FF),
+            const Color(0xFFFFF3E8),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
@@ -743,7 +832,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                 end: Alignment.bottomRight,
                 colors: [
                   primaryColor.withOpacity(0.1),
-                  const Color(0xFF8B5CF6).withOpacity(0.1),
+                  const Color(0xFFEA580C).withOpacity(0.1),
                 ],
               ),
               shape: BoxShape.circle,
@@ -813,6 +902,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
   // STATS SECTION
   // ==============================================
   Widget _buildStatsSection(Color primaryColor, Color darkColor) {
+    final totalDelivered = _subscriptions.fold<int>(0, (sum, sub) => sum + (sub.deliveredCount ?? 0));
+    final totalDays = _subscriptions.fold<int>(0, (sum, sub) => sum + sub.plan.durationDays);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -856,9 +948,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
           ),
           Expanded(
             child: _buildStatItem(
-              'Active Plans',
-              _activeSubscriptions.length.toString(),
-              Icons.check_circle,
+              'Meals Delivered',
+              '$totalDelivered / $totalDays',
+              Icons.food_bank,
               Colors.blue,
             ),
           ),
@@ -880,7 +972,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A202C),
+                color: const Color(0xFF1C1C1E),
               ),
             ),
           ],
@@ -971,6 +1063,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
             ),
             itemBuilder: (context, index) {
               final sub = pastSubscriptions[index];
+              final delivered = sub.deliveredCount ?? 0;
+              final total = sub.plan.durationDays;
               return Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
@@ -1001,7 +1095,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                             ),
                           ),
                           Text(
-                            '${_formatDate(sub.startDate)} - ${_formatDate(sub.endDate)}',
+                            '$delivered / $total meals delivered',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: Colors.grey[500],
@@ -1082,7 +1176,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
           end: Alignment.bottomRight,
           colors: [
             primaryColor.withOpacity(0.04),
-            const Color(0xFF8B5CF6).withOpacity(0.04),
+            const Color(0xFFEA580C).withOpacity(0.04),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -1100,7 +1194,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    colors: [Color(0xFFF97316), Color(0xFFEA580C)],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1169,6 +1263,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
   // CANCEL DIALOG
   // ==============================================
   void _showCancelDialog(UserSubscription subscription) {
+    final daysRemaining = subscription.plan.durationDays - (subscription.deliveredCount ?? 0);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1199,12 +1295,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A202C),
+                  color: const Color(0xFF1C1C1E),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Are you sure you want to cancel your ${subscription.plan.planName}? You will lose access to remaining days.',
+                'Are you sure you want to cancel your ${subscription.plan.planName}?\n'
+                    'You have $daysRemaining meals remaining.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
@@ -1242,7 +1339,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with SingleTick
                           context: context,
                           barrierDismissible: false,
                           builder: (context) => const Center(
-                            child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                            child: CircularProgressIndicator(color: Color(0xFFF97316)),
                           ),
                         );
 

@@ -3,7 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';       // ✅ NEW
+import 'help_support_page.dart';
 import 'login_screen.dart';
+import 'notification_screen.dart';
 
 class LocationProfilePage extends StatefulWidget {
   final String locationName;
@@ -206,7 +209,7 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
   // SNACKBARS
   // ==============================================
   SnackBar _buildSuccessSnackBar(String message) {
-    const Color primaryColor = Color(0xFF6366F1);
+    const Color primaryColor = Color(0xFFF97316);
     return SnackBar(
       content: Row(
         children: [
@@ -262,8 +265,8 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
     _cityController.text = '';
     _postalCodeController.text = '';
 
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
 
     showDialog(
       context: context,
@@ -402,8 +405,8 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
       _obscureConfirmPassword = true;
     });
 
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
 
     showDialog(
       context: context,
@@ -536,7 +539,7 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
     TextInputType? keyboardType,
     int maxLines = 1,
   }) {
-    const Color primaryColor = Color(0xFF6366F1);
+    const Color primaryColor = Color(0xFFF97316);
 
     return TextField(
       controller: controller,
@@ -572,7 +575,7 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
     required bool obscure,
     required VoidCallback onToggle,
   }) {
-    const Color primaryColor = Color(0xFF6366F1);
+    const Color primaryColor = Color(0xFFF97316);
 
     return TextField(
       controller: controller,
@@ -613,9 +616,9 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
   // ==============================================
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
-    const Color lightBg = Color(0xFFF7FAFC);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
+    const Color lightBg = Color(0xFFFAFAFA);
 
     return Container(
       color: lightBg,
@@ -656,7 +659,7 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
           end: Alignment.bottomRight,
           colors: [
             primaryColor,
-            const Color(0xFF8B5CF6),
+            const Color(0xFFEA580C),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -889,65 +892,98 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
             ),
           ),
           const SizedBox(height: 8),
+
+          // ✅ Notifications — navigates to NotificationsPage
           _buildSettingsItem(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
-            subtitle: 'Push notifications, email alerts',
+            subtitle: 'View promotions, offers & updates',
             primaryColor: primaryColor,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Notifications coming soon!'),
-                  backgroundColor: Color(0xFF6366F1),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotificationsPage(
+                    email: widget.email,
+                    locationName: widget.locationName,
+                    username: widget.username,
+                  ),
                 ),
               );
             },
           ),
-          _buildSettingsItem(
-            icon: Icons.credit_card_outlined,
-            title: 'Payment Methods',
-            subtitle: 'Add or remove payment options',
-            primaryColor: primaryColor,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Payment methods coming soon!'),
-                  backgroundColor: Color(0xFF6366F1),
-                ),
-              );
-            },
-          ),
+
+          // ✅ Help & Support — navigates to dedicated page
           _buildSettingsItem(
             icon: Icons.help_outline,
             title: 'Help & Support',
             subtitle: 'FAQs, contact us',
             primaryColor: primaryColor,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Help & Support coming soon!'),
-                  backgroundColor: Color(0xFF6366F1),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HelpSupportPage(
+                    locationName: widget.locationName,
+                    username: widget.username,
+                    email: widget.email,
+                  ),
                 ),
               );
             },
           ),
+
+          // ✅ Privacy Policy — opens external URL
           _buildSettingsItem(
             icon: Icons.privacy_tip_outlined,
             title: 'Privacy Policy',
             subtitle: 'View our privacy policy',
             primaryColor: primaryColor,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Privacy Policy coming soon!'),
-                  backgroundColor: Color(0xFF6366F1),
-                ),
-              );
-            },
+            onTap: _openPrivacyPolicy,
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    const String urlString =
+        'https://quantorra.co/tiffinwales/privacy_policy.php';
+
+    final Uri url = Uri.parse(urlString);
+
+    debugPrint('🌐 Attempting to open: $urlString');
+
+    try {
+      await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+      debugPrint('✅ Launch succeeded');
+    } catch (e) {
+      debugPrint('❌ Launch failed: $e');
+
+      // Fallback: try in-app webview (works even without a browser app)
+      try {
+        await launchUrl(url, mode: LaunchMode.inAppBrowserView);
+        debugPrint('✅ Launched in in-app browser');
+      } catch (e2) {
+        debugPrint('❌ In-app browser also failed: $e2');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open link: $e2'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildSettingsItem({
@@ -982,7 +1018,7 @@ class _LocationProfilePageState extends State<LocationProfilePage> {
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF1A202C),
+                      color: const Color(0xFF1C1C1E),
                     ),
                   ),
                   Text(

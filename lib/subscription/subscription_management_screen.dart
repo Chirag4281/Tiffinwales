@@ -45,11 +45,11 @@ class _SubscriptionManagementScreenState
 
   // Plan types
   final List<Map<String, dynamic>> _planTypes = [
-    {'type': '3days', 'label': '3 Days', 'days': 3, 'dishes': 3, 'price': 44.97, 'icon': '🌿', 'color': Color(0xFF6366F1), 'gradient': [Color(0xFF6366F1), Color(0xFF8B5CF6)], 'description': 'Perfect for weekend getaways'},
-    {'type': '5days', 'label': '5 Days', 'days': 5, 'dishes': 5, 'price': 74.95, 'icon': '🔥', 'color': Color(0xFFF093FB), 'gradient': [Color(0xFFF093FB), Color(0xFFF5576C)], 'description': 'Great for work weeks'},
-    {'type': '7days', 'label': '7 Days', 'days': 7, 'dishes': 7, 'price': 99.99, 'icon': '⭐', 'color': Color(0xFF4FACFE), 'gradient': [Color(0xFF4FACFE), Color(0xFF00F2FE)], 'description': 'Full week of delicious meals'},
-    {'type': '15days', 'label': '15 Days', 'days': 15, 'dishes': 15, 'price': 179.99, 'icon': '👑', 'color': Color(0xFF43E97B), 'gradient': [Color(0xFF43E97B), Color(0xFF38F9D7)], 'description': 'Half month premium plan'},
-    {'type': '30days', 'label': '30 Days', 'days': 30, 'dishes': 30, 'price': 329.99, 'icon': '💎', 'color': Color(0xFFFA709A), 'gradient': [Color(0xFFFA709A), Color(0xFFFEE140)], 'description': 'Ultimate monthly feast'},
+    {'type': '3days', 'label': '3 Days', 'days': 3, 'dishes': 3, 'price': 44.97, 'icon': '🌿', 'color': Color(0xFFF97316), 'gradient': [Color(0xFFF97316), Color(0xFFEA580C)], 'description': 'Perfect for weekend getaways'},
+    {'type': '5days', 'label': '5 Days', 'days': 5, 'dishes': 5, 'price': 74.95, 'icon': '🔥', 'color': Color(0xFFEA580C), 'gradient': [Color(0xFFEA580C), Color(0xFFC2410C)], 'description': 'Great for work weeks'},
+    {'type': '7days', 'label': '7 Days', 'days': 7, 'dishes': 7, 'price': 99.99, 'icon': '⭐', 'color': Color(0xFFF97316), 'gradient': [Color(0xFFF97316), Color(0xFFEA580C)], 'description': 'Full week of delicious meals'},
+    {'type': '15days', 'label': '15 Days', 'days': 15, 'dishes': 15, 'price': 179.99, 'icon': '👑', 'color': Color(0xFFEA580C), 'gradient': [Color(0xFFEA580C), Color(0xFFC2410C)], 'description': 'Half month premium plan'},
+    {'type': '30days', 'label': '30 Days', 'days': 30, 'dishes': 30, 'price': 329.99, 'icon': '💎', 'color': Color(0xFFF97316), 'gradient': [Color(0xFFF97316), Color(0xFFC2410C)], 'description': 'Ultimate monthly feast'},
     {'type': 'custom', 'label': '✨ Custom', 'days': 0, 'dishes': 0, 'price': 0, 'icon': '🎯', 'color': Color(0xFFFF6B6B), 'gradient': [Color(0xFFFF6B6B), Color(0xFFFF8E53)], 'description': 'Build your own plan'},
   ];
 
@@ -289,12 +289,12 @@ class _SubscriptionManagementScreenState
                               end: Alignment.bottomRight,
                               colors: isCustomPlan
                                   ? [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)]
-                                  : [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+                                  : [const Color(0xFFF97316), const Color(0xFFEA580C)],
                             ),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: (isCustomPlan ? const Color(0xFFFF6B6B) : const Color(0xFF6366F1)).withOpacity(0.3),
+                                color: (isCustomPlan ? const Color(0xFFFF6B6B) : const Color(0xFFF97316)).withOpacity(0.3),
                                 blurRadius: 20,
                                 offset: const Offset(0, 8),
                               ),
@@ -393,7 +393,7 @@ class _SubscriptionManagementScreenState
                                       borderRadius: BorderRadius.circular(24),
                                       border: Border.all(
                                         color: selectedImageBase64.isNotEmpty
-                                            ? const Color(0xFF6366F1).withOpacity(0.5)
+                                            ? const Color(0xFFF97316).withOpacity(0.5)
                                             : Colors.white.withOpacity(0.3),
                                         width: selectedImageBase64.isNotEmpty ? 2 : 1.5,
                                       ),
@@ -473,27 +473,27 @@ class _SubscriptionManagementScreenState
                                           decoration: BoxDecoration(
                                             gradient: LinearGradient(
                                               colors: [
-                                                const Color(0xFF6366F1).withOpacity(0.1),
-                                                const Color(0xFF8B5CF6).withOpacity(0.1),
+                                                const Color(0xFFF97316).withOpacity(0.1),
+                                                const Color(0xFFEA580C).withOpacity(0.1),
                                               ],
                                             ),
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                              color: const Color(0xFF6366F1).withOpacity(0.2),
+                                              color: const Color(0xFFF97316).withOpacity(0.2),
                                               width: 2,
                                             ),
                                           ),
                                           child: Icon(
                                             Icons.add_photo_alternate,
                                             size: 40,
-                                            color: const Color(0xFF6366F1),
+                                            color: const Color(0xFFF97316),
                                           ),
                                         ),
                                         const SizedBox(height: 12),
                                         Text(
                                           'Tap to upload image',
                                           style: GoogleFonts.poppins(
-                                            color: const Color(0xFF1A202C),
+                                            color: const Color(0xFF1C1C1E),
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -520,7 +520,7 @@ class _SubscriptionManagementScreenState
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF1A202C),
+                                        color: const Color(0xFF1C1C1E),
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -608,7 +608,7 @@ class _SubscriptionManagementScreenState
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 16,
                                                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                                  color: isSelected ? Colors.white : const Color(0xFF1A202C),
+                                                  color: isSelected ? Colors.white : const Color(0xFF1C1C1E),
                                                 ),
                                               ),
                                               subtitle: Text(
@@ -829,12 +829,12 @@ class _SubscriptionManagementScreenState
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               gradient: LinearGradient(
-                                                colors: [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+                                                colors: [const Color(0xFFF97316), const Color(0xFFEA580C)],
                                               ),
                                               borderRadius: BorderRadius.circular(10),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                                                  color: const Color(0xFFF97316).withOpacity(0.3),
                                                   blurRadius: 10,
                                                   offset: const Offset(0, 4),
                                                 ),
@@ -856,14 +856,14 @@ class _SubscriptionManagementScreenState
                                                   style: GoogleFonts.poppins(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w700,
-                                                    color: const Color(0xFF1A202C),
+                                                    color: const Color(0xFF1C1C1E),
                                                   ),
                                                 ),
                                                 Text(
                                                   '${selectedDishes.length} dishes selected',
                                                   style: GoogleFonts.poppins(
                                                     fontSize: 13,
-                                                    color: const Color(0xFF6366F1),
+                                                    color: const Color(0xFFF97316),
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
@@ -1002,7 +1002,7 @@ class _SubscriptionManagementScreenState
                                                       decoration: BoxDecoration(
                                                         gradient: isSelected
                                                             ? const LinearGradient(
-                                                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                                          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
                                                         )
                                                             : null,
                                                         borderRadius: BorderRadius.circular(10),
@@ -1015,7 +1015,7 @@ class _SubscriptionManagementScreenState
                                                         boxShadow: isSelected
                                                             ? [
                                                           BoxShadow(
-                                                            color: const Color(0xFF6366F1).withOpacity(0.3),
+                                                            color: const Color(0xFFF97316).withOpacity(0.3),
                                                             blurRadius: 12,
                                                             offset: const Offset(0, 4),
                                                           ),
@@ -1147,12 +1147,12 @@ class _SubscriptionManagementScreenState
                                                   }
                                                 });
                                               },
-                                              selectedColor: isCustom ? const Color(0xFFFF6B6B) : const Color(0xFF6366F1),
+                                              selectedColor: isCustom ? const Color(0xFFFF6B6B) : const Color(0xFFF97316),
                                               backgroundColor: Colors.white.withOpacity(0.5),
                                               checkmarkColor: Colors.white,
                                               side: BorderSide(
                                                 color: isSelected
-                                                    ? (isCustom ? const Color(0xFFFF6B6B) : const Color(0xFF6366F1))
+                                                    ? (isCustom ? const Color(0xFFFF6B6B) : const Color(0xFFF97316))
                                                     : Colors.white.withOpacity(0.3),
                                                 width: 1.5,
                                               ),
@@ -1211,12 +1211,12 @@ class _SubscriptionManagementScreenState
                                     gradient: LinearGradient(
                                       colors: isCustomPlan
                                           ? [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)]
-                                          : [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+                                          : [const Color(0xFFF97316), const Color(0xFFEA580C)],
                                     ),
                                     borderRadius: BorderRadius.circular(14),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: (isCustomPlan ? const Color(0xFFFF6B6B) : const Color(0xFF6366F1)).withOpacity(0.3),
+                                        color: (isCustomPlan ? const Color(0xFFFF6B6B) : const Color(0xFFF97316)).withOpacity(0.3),
                                         blurRadius: 20,
                                         offset: const Offset(0, 8),
                                       ),
@@ -1340,7 +1340,7 @@ class _SubscriptionManagementScreenState
     required IconData icon,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
-    Color customColor = const Color(0xFF6366F1),
+    Color customColor = const Color(0xFFF97316),
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1360,7 +1360,7 @@ class _SubscriptionManagementScreenState
       ),
       child: TextField(
         controller: controller,
-        style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF1A202C)),
+        style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF1C1C1E)),
         maxLines: maxLines,
         keyboardType: keyboardType,
         decoration: InputDecoration(
@@ -1497,7 +1497,7 @@ class _SubscriptionManagementScreenState
               'Delete Plan',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A202C),
+                color: const Color(0xFF1C1C1E),
                 fontSize: 20,
               ),
             ),
@@ -1578,9 +1578,9 @@ class _SubscriptionManagementScreenState
   // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
-    const Color bgColor = Color(0xFFF0F2F5);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
+    const Color bgColor = Color(0xFFFAFAFA);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -1593,7 +1593,7 @@ class _SubscriptionManagementScreenState
             child: _isLoading
                 ? const Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF97316)),
                 strokeWidth: 3,
               ),
             )
@@ -1622,12 +1622,12 @@ class _SubscriptionManagementScreenState
       floatingActionButton: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+            colors: [Color(0xFFF97316), Color(0xFFEA580C)],
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF6366F1).withOpacity(0.4),
+              color: const Color(0xFFF97316).withOpacity(0.4),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -1656,7 +1656,7 @@ class _SubscriptionManagementScreenState
           (t) => t['type'] == plan.planType,
       orElse: () => _planTypes[0],
     );
-    final List<Color> gradientColors = planTypeData['gradient'] ?? [const Color(0xFF6366F1), const Color(0xFF8B5CF6)];
+    final List<Color> gradientColors = planTypeData['gradient'] ?? [const Color(0xFFF97316), const Color(0xFFEA580C)];
     final bool isCustom = plan.planType == 'custom';
 
     return Container(
@@ -1863,13 +1863,13 @@ class _SubscriptionManagementScreenState
                               gradient: LinearGradient(
                                 colors: isCustomDish
                                     ? [const Color(0xFFFF6B6B).withOpacity(0.1), const Color(0xFFFF8E53).withOpacity(0.1)]
-                                    : [const Color(0xFF6366F1).withOpacity(0.1), const Color(0xFF8B5CF6).withOpacity(0.1)],
+                                    : [const Color(0xFFF97316).withOpacity(0.1), const Color(0xFFEA580C).withOpacity(0.1)],
                               ),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: isCustomDish
                                     ? const Color(0xFFFF6B6B).withOpacity(0.2)
-                                    : const Color(0xFF6366F1).withOpacity(0.2),
+                                    : const Color(0xFFF97316).withOpacity(0.2),
                                 width: 1,
                               ),
                             ),
@@ -1889,7 +1889,7 @@ class _SubscriptionManagementScreenState
                                     fontSize: 10,
                                     color: isCustomDish
                                         ? const Color(0xFFFF6B6B)
-                                        : const Color(0xFF6366F1),
+                                        : const Color(0xFFF97316),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -1949,7 +1949,7 @@ class _SubscriptionManagementScreenState
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF1A202C),
+              color: const Color(0xFF1C1C1E),
             ),
             textAlign: TextAlign.center,
           ),
@@ -1985,7 +1985,7 @@ class _SubscriptionManagementScreenState
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A202C),
+              color: const Color(0xFF1C1C1E),
             ),
           ),
           const SizedBox(height: 8),
@@ -2006,7 +2006,7 @@ class _SubscriptionManagementScreenState
             icon: const Icon(Icons.refresh),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: const Color(0xFFF97316),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               shape: RoundedRectangleBorder(
@@ -2031,20 +2031,20 @@ class _SubscriptionManagementScreenState
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF6366F1).withOpacity(0.08),
-                  const Color(0xFF8B5CF6).withOpacity(0.08),
+                  const Color(0xFFF97316).withOpacity(0.08),
+                  const Color(0xFFEA580C).withOpacity(0.08),
                 ],
               ),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFF6366F1).withOpacity(0.2),
+                color: const Color(0xFFF97316).withOpacity(0.2),
                 width: 2,
               ),
             ),
             child: Icon(
               Icons.subscriptions,
               size: 80,
-              color: const Color(0xFF6366F1).withOpacity(0.3),
+              color: const Color(0xFFF97316).withOpacity(0.3),
             ),
           ),
           const SizedBox(height: 32),
@@ -2053,7 +2053,7 @@ class _SubscriptionManagementScreenState
             style: GoogleFonts.poppins(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A202C),
+              color: const Color(0xFF1C1C1E),
             ),
           ),
           const SizedBox(height: 8),
@@ -2068,12 +2068,12 @@ class _SubscriptionManagementScreenState
           Container(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                colors: [Color(0xFFF97316), Color(0xFFEA580C)],
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                  color: const Color(0xFFF97316).withOpacity(0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),

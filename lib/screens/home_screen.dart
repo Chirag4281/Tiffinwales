@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.15),
+                  color: const Color(0xFFF97316).withOpacity(0.15),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),
@@ -111,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 40,
                   height: 40,
                   child: CircularProgressIndicator(
-                    color: Color(0xFF6366F1),
+                    color: Color(0xFFF97316),
                     strokeWidth: 3,
                   ),
                 ),
@@ -121,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1A202C),
+                    color: const Color(0xFF1C1C1E),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -159,10 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color secondaryColor = Color(0xFF8B5CF6);
-    const Color darkColor = Color(0xFF1A202C);
-    const Color lightColor = Color(0xFFF7FAFC);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color secondaryColor = Color(0xFFEA580C);
+    const Color darkColor = Color(0xFF1C1C1E);
+    const Color lightColor = Color(0xFFFAFAFA);
 
     final String displayName = widget.username ?? 'Guest';
 
@@ -279,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const CircularProgressIndicator(
-            color: Color(0xFF6366F1),
+            color: Color(0xFFF97316),
             strokeWidth: 3,
           ),
           const SizedBox(height: 20),
@@ -321,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1A202C),
+                color: const Color(0xFF1C1C1E),
               ),
             ),
             const SizedBox(height: 8),
@@ -525,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
           gradient: LinearGradient(
             colors: [
               primaryColor,
-              const Color(0xFF8B5CF6),
+              const Color(0xFFEA580C),
             ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,

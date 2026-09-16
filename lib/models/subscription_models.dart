@@ -168,9 +168,14 @@ class UserSubscription {
   final String specialInstructions;
   final DateTime startDate;
   final DateTime endDate;
-  final int daysRemaining;
-  final String status;
+  int daysRemaining;
+  String status;
   final int orderCount;
+  int? deliveredCount;
+
+  // NEW: Track which dish instances have been delivered
+  // Format: "dishName|instanceNumber" e.g., "Chana Masala|1", "Chana Masala|2"
+  List<String> deliveredDishInstances = [];
 
   UserSubscription({
     required this.id,
@@ -191,6 +196,8 @@ class UserSubscription {
     this.daysRemaining = 0,
     this.status = 'pending',
     this.orderCount = 0,
+    this.deliveredCount = 0,
+    this.deliveredDishInstances = const [],
   });
 
   factory UserSubscription.fromJson(Map<String, dynamic> json, SubscriptionPlan plan) {
@@ -208,26 +215,126 @@ class UserSubscription {
       }
     }
 
+    // Parse delivered dish instances
+    List<String> deliveredInstances = [];
+    if (json['delivered_dish_instances'] != null) {
+      if (json['delivered_dish_instances'] is List) {
+        deliveredInstances = List<String>.from(json['delivered_dish_instances']);
+      } else if (json['delivered_dish_instances'] is String) {
+        try {
+          final decoded = jsonDecode(json['delivered_dish_instances']);
+          if (decoded is List) {
+            deliveredInstances = List<String>.from(decoded);
+          }
+        } catch (e) {}
+      }
+    }
+
     return UserSubscription(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
       userEmail: json['user_email']?.toString() ?? '',
       locationName: json['location_name']?.toString() ?? '',
       plan: plan,
       mealType: json['meal_type']?.toString() ?? 'veg',
       breadType: json['bread_type']?.toString() ?? 'naan',
       spiceLevel: json['spice_level']?.toString() ?? 'mild',
-      selectedDishes: dishes,
-      totalPrice: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
+      selectedDishes: dishes.isNotEmpty ? dishes : [],
+      totalPrice: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0,
       deliveryOption: json['delivery_option']?.toString() ?? 'delivery',
       deliveryDate: DateTime.tryParse(json['delivery_date']?.toString() ?? '') ?? DateTime.now(),
       deliveryTimeSlot: json['delivery_time_slot']?.toString() ?? '',
       specialInstructions: json['special_instructions']?.toString() ?? '',
       startDate: DateTime.tryParse(json['start_date']?.toString() ?? '') ?? DateTime.now(),
       endDate: DateTime.tryParse(json['end_date']?.toString() ?? '') ?? DateTime.now(),
-      daysRemaining: json['days_remaining'] as int? ?? 0,
+      daysRemaining: int.tryParse(json['days_remaining']?.toString() ?? '0') ?? 0,
       status: json['status']?.toString() ?? 'pending',
-      orderCount: json['order_count'] as int? ?? 0,
+      orderCount: int.tryParse(json['order_count']?.toString() ?? '0') ?? 0,
+      deliveredCount: int.tryParse(json['delivered_count']?.toString() ?? '0') ?? 0,
+      deliveredDishInstances: deliveredInstances,
     );
+  }
+
+  UserSubscription copyWith({
+    int? id,
+    String? userEmail,
+    String? locationName,
+    SubscriptionPlan? plan,
+    String? mealType,
+    String? breadType,
+    String? spiceLevel,
+    List<String>? selectedDishes,
+    double? totalPrice,
+    String? deliveryOption,
+    DateTime? deliveryDate,
+    String? deliveryTimeSlot,
+    String? specialInstructions,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? daysRemaining,
+    String? status,
+    int? orderCount,
+    int? deliveredCount,
+    List<String>? deliveredDishInstances,
+  }) {
+    return UserSubscription(
+      id: id ?? this.id,
+      userEmail: userEmail ?? this.userEmail,
+      locationName: locationName ?? this.locationName,
+      plan: plan ?? this.plan,
+      mealType: mealType ?? this.mealType,
+      breadType: breadType ?? this.breadType,
+      spiceLevel: spiceLevel ?? this.spiceLevel,
+      selectedDishes: selectedDishes ?? this.selectedDishes,
+      totalPrice: totalPrice ?? this.totalPrice,
+      deliveryOption: deliveryOption ?? this.deliveryOption,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      deliveryTimeSlot: deliveryTimeSlot ?? this.deliveryTimeSlot,
+      specialInstructions: specialInstructions ?? this.specialInstructions,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      daysRemaining: daysRemaining ?? this.daysRemaining,
+      status: status ?? this.status,
+      orderCount: orderCount ?? this.orderCount,
+      deliveredCount: deliveredCount ?? this.deliveredCount,
+      deliveredDishInstances: deliveredDishInstances ?? this.deliveredDishInstances,
+    );
+  }
+
+  // Helper: Get available dishes (not fully delivered)
+  List<String> get availableDishes {
+    // Count how many times each dish has been delivered
+    final Map<String, int> deliveredCounts = {};
+    for (var instance in deliveredDishInstances) {
+      final dishName = instance.split('|').first;
+      deliveredCounts[dishName] = (deliveredCounts[dishName] ?? 0) + 1;
+    }
+
+    // Get all dishes with their max allowed count (based on total dishes / unique dishes)
+    final Map<String, int> dishLimits = {};
+    final totalDays = plan.durationDays;
+    final uniqueDishes = selectedDishes.toSet().length;
+    final baseCount = totalDays ~/ uniqueDishes;
+    final remainder = totalDays % uniqueDishes;
+
+    for (int i = 0; i < selectedDishes.length; i++) {
+      final dish = selectedDishes[i];
+      // Each dish can be selected multiple times
+      dishLimits[dish] = baseCount + (i < remainder ? 1 : 0);
+    }
+
+    // Return dishes that can still be selected
+    return selectedDishes.where((dish) {
+      final deliveredCount = deliveredCounts[dish] ?? 0;
+      final limit = dishLimits[dish] ?? 1;
+      return deliveredCount < limit;
+    }).toList();
+  }
+
+  // Helper: Get remaining delivery count
+  int get remainingDeliveries {
+    final totalDeliveries = plan.durationDays;
+    final delivered = deliveredDishInstances.length;
+    return totalDeliveries - delivered;
   }
 
   String get formattedPrice => '\$${totalPrice.toStringAsFixed(2)}';
@@ -262,30 +369,6 @@ class UserSubscription {
     }
   }
 }
-
-class SubscriptionDish {
-  final int id;
-  final String dishName;
-  final String category;
-  final bool isAvailable;
-
-  SubscriptionDish({
-    required this.id,
-    required this.dishName,
-    this.category = 'veg',
-    this.isAvailable = true,
-  });
-
-  factory SubscriptionDish.fromJson(Map<String, dynamic> json) {
-    return SubscriptionDish(
-      id: json['id'] as int,
-      dishName: json['dish_name']?.toString() ?? '',
-      category: json['category']?.toString() ?? 'veg',
-      isAvailable: json['is_available'] == 1,
-    );
-  }
-}
-
 class SubscriptionPlanFull {
   final int id;
   final String locationName;

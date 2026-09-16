@@ -200,14 +200,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF6366F1),
-                        Color(0xFF8B5CF6),
+                        Color(0xFFF97316),
+                        Color(0xFFEA580C),
                       ],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        color: const Color(0xFFF97316).withOpacity(0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -257,14 +257,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color(0xFF6366F1),
-                          Color(0xFF8B5CF6),
+                          Color(0xFFF97316),
+                          Color(0xFFEA580C),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.3),
+                          color: const Color(0xFFF97316).withOpacity(0.3),
                           blurRadius: 15,
                           offset: const Offset(0, 6),
                         ),
@@ -343,8 +343,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   // ==============================================
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color lightColor = Color(0xFFEEF2FF);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color lightColor = Color(0xFFFFF3E8);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -786,14 +786,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      Color(0xFF6366F1),
-                                      Color(0xFF8B5CF6),
+                                      Color(0xFFF97316),
+                                      Color(0xFFEA580C),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF6366F1).withOpacity(0.35),
+                                      color: const Color(0xFFF97316).withOpacity(0.35),
                                       blurRadius: 20,
                                       offset: const Offset(0, 8),
                                     ),

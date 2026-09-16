@@ -24,7 +24,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-
+<key>NSFaceIDUsageDescription</key>
+<string>We use Face ID to autofill your saved payment method securely.</string>
 	<!-- Privacy Usage Descriptions - REQUIRED for App Store -->
 	<key>NSCameraUsageDescription</key>
 	<string>We need camera access to upload profile pictures and menu images</string>
@@ -40,7 +41,12 @@
 
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>We need your location to provide accurate delivery services</string>
-
+<key>LSApplicationQueriesSchemes</key>
+<array>
+    <string>whatsapp</string>
+    <string>mailto</string>
+    <string>tel</string>
+</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -58,19 +64,23 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+<key>UIBackgroundModes</key>
+<array>
+    <string>remote-notification</string>
+    <string>fetch</string>
+</array>
 
+<key>FirebaseAppDelegateProxyEnabled</key>
+<string>NO</string>
+
+<key>OneSignal</key>
+<dict>
+    <key>app_id</key>
+    <string>1be25b22-5e27-418f-8c0a-9a68cc6c39e5</string>
+    <key>notification_priority</key>
+    <string>high</string>
+</dict>
 	<!-- Google Sign-In Configuration (if using) -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.YOUR_GOOGLE_CLIENT_ID</string>
-			</array>
-		</dict>
-	</array>
 
 	<!-- App Transport Security -->
 	<key>NSAppTransportSecurity</key>

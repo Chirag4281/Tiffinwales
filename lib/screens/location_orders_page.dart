@@ -35,7 +35,6 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
   // ==============================================
   // LOAD ORDERS FROM API
   // ==============================================
-  // In LocationOrdersPage (User view)
   Future<void> _loadOrders() async {
     setState(() {
       _isLoading = true;
@@ -49,8 +48,6 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
       request.fields['location_name'] = widget.locationName;
       request.fields['user_type'] = 'normal';
       request.fields['user_role'] = 'user';
-
-      // Shows orders by email AND location
 
       var response = await request.send();
       var responseBody = await response.stream.bytesToString();
@@ -74,6 +71,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
       });
     }
   }
+
   // ==============================================
   // GET FIRST ITEM NAME FROM ORDER
   // ==============================================
@@ -134,9 +132,9 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
-    const Color lightBg = Color(0xFFF7FAFC);
+    const Color primaryColor = Color(0xFFF97316);   // Logo orange
+    const Color darkColor = Color(0xFF1C1C1E);       // Logo charcoal
+    const Color lightBg = Color(0xFFFAFAFA);         // Clean background
 
     // Filter orders based on selected filter
     List<Map<String, dynamic>> filteredOrders = _orders;
@@ -199,7 +197,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
           end: Alignment.bottomRight,
           colors: [
             primaryColor,
-            const Color(0xFF8B5CF6),
+            const Color(0xFFEA580C),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -329,7 +327,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
         child: Column(
           children: [
             const CircularProgressIndicator(
-              color: Color(0xFF6366F1),
+              color: Color(0xFFF97316),
               strokeWidth: 3,
             ),
             const SizedBox(height: 16),
@@ -566,7 +564,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                firstItemName, // Display first item name instead of customer name
+                                firstItemName,
                                 style: GoogleFonts.poppins(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -831,14 +829,14 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: const Color(0xFF6366F1)),
+              Icon(icon, size: 16, color: const Color(0xFFF97316)),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1A202C),
+                  color: const Color(0xFF1C1C1E),
                 ),
               ),
             ],
@@ -873,7 +871,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
               value,
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: const Color(0xFF1A202C),
+                color: const Color(0xFF1C1C1E),
               ),
             ),
           ),
@@ -915,7 +913,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
               name,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: const Color(0xFF1A202C),
+                color: const Color(0xFF1C1C1E),
               ),
             ),
           ),
@@ -924,7 +922,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF1A202C),
+              color: const Color(0xFF1C1C1E),
             ),
           ),
         ],
@@ -933,8 +931,8 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
   }
 
   Widget _buildPriceRow(String label, double amount, {bool isTotal = false}) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color darkColor = Color(0xFF1A202C);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1006,7 +1004,7 @@ class _LocationOrdersPageState extends State<LocationOrdersPage> {
       case 'preparing':
         return Colors.blue;
       case 'ready':
-        return Colors.purple;
+        return const Color(0xFFF97316);   // Tiffin Wales orange (was purple)
       case 'completed':
       case 'delivered':
         return Colors.green;

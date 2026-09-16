@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659270240843",
+    "project_id": "tiffinwales-240ad",
+    "storage_bucket": "tiffinwales-240ad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659270240843:android:e8f0cafcd86f5abaa7dbce",
+        "android_client_info": {
+          "package_name": "com.tiffinwales.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2Uds6hujWow53tXzdxtv5EY29b7J_Lt0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

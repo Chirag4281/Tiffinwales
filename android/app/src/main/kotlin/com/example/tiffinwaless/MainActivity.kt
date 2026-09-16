@@ -1,4 +1,4 @@
-package com.example.tiffinwaless
+package com.tiffinwales.app
 
 import io.flutter.embedding.android.FlutterActivity
 

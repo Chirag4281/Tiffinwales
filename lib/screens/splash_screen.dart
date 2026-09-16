@@ -1,3 +1,5 @@
+// lib/screens/splash_screen.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +12,7 @@ import 'welcome_screen.dart';
 import 'home_screen.dart';
 import 'location_screen.dart';
 import 'master_admin_screen.dart';
-import 'manager_screen.dart';
+import 'manager/manager_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -29,6 +31,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   // API URL
   final String apiUrl = 'https://quantorra.co/tiffinwales/Login.php';
+
+  // Orange Theme Colors
+  static const Color brandOrange = Color(0xFFFF6B00);
+  static const Color lightOrange = Color(0xFFFF8C38);
+  static const Color darkOrange = Color(0xFFCC5500);
+  static const Color softOrange = Color(0xFFFFE8D6);
 
   @override
   void initState() {
@@ -262,30 +270,27 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    const Color brandGreen = Color(0xFFB3D335);
-    const Color darkGreen = Color(0xFF2E4A00);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Beautiful Background Gradient
+          // 1. Beautiful Background Gradient with Orange
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFFF0F9F0),
-                  Color(0xFFFFFFFF),
-                  Color(0xFFE5F5CB),
+                  softOrange.withOpacity(0.3),
+                  Colors.white,
+                  softOrange.withOpacity(0.5),
                 ],
-                stops: [0.0, 0.5, 1.0],
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
           ),
 
-          // 2. Decorative Glass Blobs
+          // 2. Decorative Orange Glass Blobs
           Positioned(
             top: -100,
             right: -100,
@@ -294,7 +299,7 @@ class _SplashScreenState extends State<SplashScreen>
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: brandGreen.withOpacity(0.15),
+                color: brandOrange.withOpacity(0.12),
               ),
             ),
           ),
@@ -306,7 +311,19 @@ class _SplashScreenState extends State<SplashScreen>
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: darkGreen.withOpacity(0.08),
+                color: darkOrange.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 150,
+            left: -50,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: lightOrange.withOpacity(0.05),
               ),
             ),
           ),
@@ -318,7 +335,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Glassmorphism Card for Logo
+                  // Glassmorphism Card for Logo with Orange Accent
                   AnimatedBuilder(
                     animation: _logoController,
                     builder: (context, child) {
@@ -329,65 +346,70 @@ class _SplashScreenState extends State<SplashScreen>
                           child: Container(
                             padding: const EdgeInsets.all(40),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.7),
+
                               borderRadius: BorderRadius.circular(40),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.5),
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 30,
-                                  offset: const Offset(0, 15),
-                                ),
-                              ],
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withOpacity(0.9),
-                                  Colors.white.withOpacity(0.4),
-                                ],
-                              ),
+
+
+                            
                             ),
                             child: Column(
                               children: [
-                                // Logo Image
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(30),
-                                  child: Image.asset(
-                                    'assets/images/app_icon.png',
-                                    height: 180,
-                                    width: 180,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Icon(
-                                        Icons.restaurant_menu,
-                                        size: 80,
-                                        color: brandGreen,
-                                      );
-                                    },
+                                // Logo Image with Orange Glow
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(30),
+
+
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(30),
+                                    child: Image.asset(
+                                      'assets/images/app_icon.jpg',
+                                      height: 180,
+                                      width: 180,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Icon(
+                                          Icons.restaurant_menu,
+                                          size: 80,
+                                          color: brandOrange,
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 28),
                                 Text(
                                   'TIFFIN WALES',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.cormorantGaramond(
                                     fontSize: 34,
-                                    fontWeight: FontWeight.w800,
-                                    color: darkGreen,
+                                    fontWeight: FontWeight.bold,
+                                    color: darkOrange,
                                     letterSpacing: 2.0,
+                                    shadows: [
+                                      Shadow(
+                                        color: brandOrange.withOpacity(0.15),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  'Crafted Meals. Timely Delivery.',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.black54,
-                                    letterSpacing: 0.5,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: brandOrange.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Crafted Meals. Timely Delivery.',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: brandOrange,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -400,8 +422,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                   const SizedBox(height: 60),
 
-                  // Simple Loading Indicator (Progress Bar Removed)
-
+                  // Simple Loading Indicator with Orange
                 ],
               ),
             ),

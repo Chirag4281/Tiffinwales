@@ -3,9 +3,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tiffinwales/subscription/subscription_order_screen.dart';
 import '../models/subscription_models.dart';
 import '../services/subscription_service.dart';
-import 'subscription_order_screen.dart';
 
 class SubscriptionListScreen extends StatefulWidget {
   final String locationName;
@@ -27,6 +27,7 @@ class _SubscriptionListScreenState extends State<SubscriptionListScreen>
     with SingleTickerProviderStateMixin {
   List<SubscriptionPlan> _plans = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String? _error;
   String _selectedFilter = 'All';
 
@@ -79,69 +80,19 @@ class _SubscriptionListScreenState extends State<SubscriptionListScreen>
           return;
         }
       }
-      _loadFallbackPlans();
-    } catch (e) {
-      _loadFallbackPlans();
-    }
-  }
 
-  void _loadFallbackPlans() {
-    setState(() {
-      _plans = [
-        SubscriptionPlan(
-          id: 1,
-          locationName: widget.locationName,
-          planType: '3days',
-          planName: '3 Days Meal',
-          description: 'Perfect for weekend trial',
-          price: 44.97,
-          durationDays: 3,
-          maxDishes: 3,
-        ),
-        SubscriptionPlan(
-          id: 2,
-          locationName: widget.locationName,
-          planType: '5days',
-          planName: '5 Days Meal',
-          description: 'Great for work week',
-          price: 74.95,
-          durationDays: 5,
-          maxDishes: 5,
-        ),
-        SubscriptionPlan(
-          id: 3,
-          locationName: widget.locationName,
-          planType: '7days',
-          planName: '7 Days Meal',
-          description: 'Full week coverage',
-          price: 99.99,
-          durationDays: 7,
-          maxDishes: 7,
-        ),
-        SubscriptionPlan(
-          id: 4,
-          locationName: widget.locationName,
-          planType: '15days',
-          planName: '15 Days Meal',
-          description: 'Half month savings',
-          price: 179.99,
-          durationDays: 15,
-          maxDishes: 15,
-        ),
-        SubscriptionPlan(
-          id: 5,
-          locationName: widget.locationName,
-          planType: '30days',
-          planName: '30 Days Meal',
-          description: 'Best value plan',
-          price: 329.99,
-          durationDays: 30,
-          maxDishes: 30,
-        ),
-      ];
-      _plans.sort((a, b) => a.durationDays.compareTo(b.durationDays));
-      _isLoading = false;
-    });
+      // No plans found - show empty state, no fallback
+      setState(() {
+        _plans = [];
+        _isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load plans. Please check your connection.';
+        _isLoading = false;
+      });
+    }
   }
 
   List<SubscriptionPlan> get _filteredPlans {
@@ -215,6 +166,8 @@ class _SubscriptionListScreenState extends State<SubscriptionListScreen>
           ? _buildLoadingState()
           : _error != null
           ? _buildErrorState()
+          : _plans.isEmpty
+          ? _buildEmptyState()
           : FadeTransition(
         opacity: _fadeAnimation,
         child: Column(
@@ -350,36 +303,113 @@ class _SubscriptionListScreenState extends State<SubscriptionListScreen>
   }
 
   // ==============================================
-  // EMPTY STATE
-  // ==============================================
+// EMPTY STATE - NO FALLBACK PLANS - CENTERED
+// ==============================================
   Widget _buildEmptyState() {
+    const Color primaryColor = Color(0xFF6366F1);
+    const Color darkColor = Color(0xFF1A202C);
+
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.restaurant_menu,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No Plans Available',
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A202C),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    primaryColor.withOpacity(0.08),
+                    primaryColor.withOpacity(0.15),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.restaurant_menu,
+                size: 60,
+                color: primaryColor.withOpacity(0.4),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Check back later for new subscription plans',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey[500],
+            const SizedBox(height: 24),
+            Text(
+              'No Subscription Plans Available',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: darkColor,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'There are no subscription plans available at the moment.'
+                  '',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[500],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.blue.withOpacity(0.15),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Colors.blue[600],
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'New plans will be added soon. Stay tuned!',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadPlans,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(
+                'Refresh',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

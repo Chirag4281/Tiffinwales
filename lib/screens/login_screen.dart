@@ -1,3 +1,5 @@
+// lib/screens/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,12 +7,15 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
+import '../services/initialization_service.dart';
+import 'forgot_password_screen.dart';
 import 'master_admin_screen.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
-import 'manager_screen.dart';
+import 'manager/manager_screen.dart';
 import 'welcome_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -34,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // API URL
   final String apiUrl = 'https://quantorra.co/tiffinwales/Login.php';
+  final String notificationApiUrl = 'https://quantorra.co/tiffinwales/send_notification.php';
 
   @override
   void initState() {
@@ -76,13 +82,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   // ==============================================
-  // LOGIN
+  // SYNC ONESIGNAL ID TO DATABASE - FIXED
+  // ==============================================
+
+  // ==============================================
+  // LOGIN - FIXED VERSION
   // ==============================================
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
+        print('🔐 Starting login process for: ${_emailController.text.trim()}');
+
         var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
         request.fields['action'] = 'login';
         request.fields['email'] = _emailController.text.trim();
@@ -96,6 +108,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         );
 
         var responseBody = await streamedResponse.stream.bytesToString();
+        print(' Login response: $responseBody');
+
         var responseData = json.decode(responseBody);
 
         setState(() => _isLoading = false);
@@ -110,6 +124,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           final String username = (userData['name'] ?? userData['username'] ?? 'User').toString();
           final String location = (userData['location_name'] ?? '').toString();
 
+          print('✅ Login successful!');
+          print('   Email: $email');
+          print('   Role: $role');
+          print('   Location: $location');
+
           await _saveUserSession(
             email: email,
             password: password,
@@ -118,6 +137,37 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             role: role,
             userType: userType,
           );
+
+          // 🔥 CRITICAL: Initialize OneSignal and get the ID
+          /*print(' Step 1: Initializing OneSignal...');
+          final String? oneSignalId = await _initializeAndSyncOneSignal(
+            email: email,
+            role: role,
+            locationName: location,
+          );
+
+          if (oneSignalId != null && oneSignalId.isNotEmpty) {
+            print('✅ OneSignal ID obtained: $oneSignalId');
+            print('🚀 Step 2: Syncing to database...');
+
+            // Sync to database
+            final bool syncSuccess = await _syncOneSignalIdToDatabase(
+              email: email,
+              role: role,
+              onesignalId: oneSignalId,
+              locationName: location,
+            );
+
+            if (syncSuccess) {
+              print('✅ OneSignal ID successfully saved to database!');
+            } else {
+              print('❌ Failed to save OneSignal ID to database');
+              _showErrorSnackBar('Notifications may not work. Please contact support.');
+            }
+          } else {
+            print('❌ CRITICAL: Could not obtain OneSignal ID');
+            _showErrorSnackBar('Push notification setup failed');
+          }*/
 
           _navigateBasedOnRole(
             role: role,
@@ -138,13 +188,200 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       } on FormatException {
         setState(() => _isLoading = false);
         _showErrorSnackBar('Invalid response from server. Please try again.');
-      } catch (e) {
+      } catch (e, stackTrace) {
         setState(() => _isLoading = false);
+        print('❌ Login error: $e');
+        print('Stack trace: $stackTrace');
         _showErrorSnackBar('An error occurred. Please try again.');
       }
     }
   }
+/*
+  // ==============================================
+  // INITIALIZE AND SYNC ONESIGNAL - COMPLETE FIX
+  // ==============================================
+  Future<String?> _initializeAndSyncOneSignal({
+    required String email,
+    required String role,
+    required String locationName,
+  }) async {
+    try {
+      print('');
+      print('==========================================');
+      print(' INITIALIZING ONESIGNAL');
+      print('==========================================');
+      print('📧 Email: $email');
+      print('👤 Role: $role');
+      print('📍 Location: $locationName');
 
+      // Step 1: Initialize OneSignal SDK
+      print('📱 Step 1: Initializing OneSignal SDK...');
+      await InitializationService.initializeOneSignalAfterLogin(
+        email: email,
+        role: role,
+        locationName: locationName,
+      );
+      print('✅ OneSignal SDK initialized');
+
+      // Step 2: Update user tags
+      print('🏷️ Step 2: Updating user tags...');
+      await InitializationService.updateUserTags(
+        email: email,
+        role: role,
+        location: locationName,
+      );
+      print('✅ User tags updated');
+
+      // Step 3: Wait for OneSignal to be fully ready
+      print(' Step 3: Waiting for OneSignal to be ready...');
+      await Future.delayed(const Duration(seconds: 3));
+
+      // Step 4: Get OneSignal ID with retries
+      print('🔍 Step 4: Fetching OneSignal ID...');
+      String? oneSignalId;
+      int maxRetries = 10;
+
+      for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        oneSignalId = await OneSignal.User.getOnesignalId();
+
+        print('   Attempt $attempt/$maxRetries: ID = ${oneSignalId ?? "null"}');
+
+        if (oneSignalId != null &&
+            oneSignalId.isNotEmpty &&
+            oneSignalId.length >= 30) {
+          print('✅ Valid OneSignal ID found on attempt $attempt');
+          break;
+        }
+
+        if (attempt < maxRetries) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+
+      // Step 5: Validate the ID
+      if (oneSignalId == null || oneSignalId.isEmpty || oneSignalId.length < 30) {
+        print('❌ CRITICAL: OneSignal ID is invalid after $maxRetries attempts');
+        print('   ID value: "$oneSignalId"');
+        print('   ID length: ${oneSignalId?.length ?? 0}');
+
+        // Try one more time with longer delay
+        print('🔄 Final retry with 5 second delay...');
+        await Future.delayed(const Duration(seconds: 5));
+        oneSignalId = await OneSignal.User.getOnesignalId();
+        print('   Final ID attempt: ${oneSignalId ?? "null"}');
+      }
+
+      print('');
+      print('==========================================');
+      if (oneSignalId != null && oneSignalId.isNotEmpty) {
+        print('✅ ONESIGNAL ID OBTAINED: $oneSignalId');
+      } else {
+        print('❌ FAILED TO GET ONESIGNAL ID');
+      }
+      print('==========================================');
+      print('');
+
+      return oneSignalId;
+
+    } catch (e, stackTrace) {
+      print(' Error in _initializeAndSyncOneSignal: $e');
+      print('Stack trace: $stackTrace');
+      return null;
+    }
+  }
+
+  // ==============================================
+  // SYNC ONESIGNAL ID TO DATABASE - FIXED
+  // ==============================================
+  Future<bool> _syncOneSignalIdToDatabase({
+    required String email,
+    required String role,
+    required String onesignalId,
+    required String locationName,
+  }) async {
+    try {
+      print('');
+      print('==========================================');
+      print(' SYNCING ONESIGNAL ID TO DATABASE');
+      print('==========================================');
+      print('📧 Email: $email');
+      print('👤 Role: $role');
+      print('📱 OneSignal ID: $onesignalId');
+      print('📍 Location: $locationName');
+
+      // Validate inputs
+      if (email.isEmpty) {
+        print('❌ Email is empty');
+        return false;
+      }
+
+      if (onesignalId.isEmpty || onesignalId.length < 30) {
+        print('❌ OneSignal ID is invalid: $onesignalId');
+        return false;
+      }
+
+      final url = Uri.parse(notificationApiUrl);
+      print('🌐 Sending request to: $notificationApiUrl');
+
+      final response = await http.post(
+        url,
+        body: {
+          'action': 'update_onesignal_id',
+          'email': email,
+          'onesignal_id': onesignalId,
+          'role': role,
+          'location_name': locationName,
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print(' Request timeout');
+          throw Exception('Request timeout');
+        },
+      );
+
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['status'] == 'success') {
+          print('✅ Database update successful!');
+          print(' Table updated: ${data['table'] ?? 'unknown'}');
+          print('📝 Message: ${data['message'] ?? 'Success'}');
+
+          // Save locally as backup
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('onesignal_id', onesignalId);
+          await prefs.setString('user_email', email);
+          await prefs.setString('user_role', role);
+          print('💾 OneSignal ID saved locally');
+
+          print('==========================================');
+          print('✅ SYNC COMPLETED SUCCESSFULLY');
+          print('==========================================');
+          print('');
+
+          return true;
+        } else {
+          print('❌ Server returned error status');
+          print('   Message: ${data['message'] ?? 'Unknown error'}');
+          print('   Status: ${data['status'] ?? 'unknown'}');
+          return false;
+        }
+      } else {
+        print('❌ HTTP error: ${response.statusCode}');
+        print('   Response: ${response.body}');
+        return false;
+      }
+    } catch (e, stackTrace) {
+      print('❌ Exception in _syncOneSignalIdToDatabase: $e');
+      print('Stack trace: $stackTrace');
+      return false;
+    }
+  }
+*/
   // ==============================================
   // SAVE USER SESSION
   // ==============================================
@@ -169,6 +406,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   // ==============================================
   // NAVIGATE BASED ON ROLE
   // ==============================================
+  // ==============================================
+  // NAVIGATE BASED ON ROLE (With Background OneSignal Init)
+  // ==============================================
+  // ==============================================
+  // NAVIGATE BASED ON ROLE (Fixed Navigator Lock)
+  // ==============================================
+// ==============================================
+  // NAVIGATE BASED ON ROLE (ROBUST FIX)
+  // ==============================================
   void _navigateBasedOnRole({
     required String role,
     required String userType,
@@ -180,16 +426,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     Widget nextScreen;
 
+    // Determine the correct screen
     if (userType == 'admin') {
       if (role == 'master') {
         nextScreen = const MasterAdminScreen();
       } else {
+        // Manager Screen
         nextScreen = ManagerScreen(
           locationName: locationName,
           email: email,
         );
       }
     } else {
+      // Normal User
       nextScreen = HomeScreen(
         email: email,
         username: username,
@@ -197,15 +446,56 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
     }
 
-    _showLoginSuccessDialog(
-      username: username,
-      email: email,
-      role: role,
-      userType: userType,
-      locationName: locationName,
-      userData: userData,
-      nextScreen: nextScreen,
-    );
+    // 🔥 CRITICAL FIX: Use pushAndRemoveUntil to clear the stack properly
+    // This prevents issues with "pop" failing if the stack is empty or complex
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => nextScreen),
+              (route) => false, // Remove all previous routes (Welcome, Login, etc.)
+        );
+
+        // Start OneSignal in background AFTER navigation has started
+        _initializeOneSignalInBackground(
+          email: email,
+          role: role,
+          locationName: locationName,
+        );
+      }
+    });
+  }
+
+  // ==============================================
+  // BACKGROUND ONESIGNAL INITIALIZATION
+  // ==============================================
+  Future<void> _initializeOneSignalInBackground({
+    required String email,
+    required String role,
+    required String locationName,
+  }) async {
+    try {
+      print('🔔 Initializing OneSignal in background for: $email');
+
+      // 1. Initialize SDK & Set Tags
+      await InitializationService.initializeOneSignalAfterLogin(
+        email: email,
+        role: role,
+        locationName: locationName,
+      );
+
+      // 2. Sync ID to Database (Non-blocking)
+      await InitializationService.syncOneSignalIdToDatabase(
+        email: email,
+        role: role,
+        locationName: locationName,
+      );
+
+      print('✅ Background OneSignal setup complete');
+    } catch (e) {
+      // Silently fail - don't show error to user since they're already logged in
+      print('️ Background OneSignal init failed (non-critical): $e');
+    }
   }
 
   // ==============================================
@@ -244,14 +534,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF6366F1),
-                        Color(0xFF8B5CF6),
+                        Color(0xFFF97316),
+                        Color(0xFFEA580C),
                       ],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        color: const Color(0xFFF97316).withOpacity(0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -282,6 +572,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF97316).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.notifications_active,
+                        color: const Color(0xFFF97316),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '🔔 Push notifications enabled',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFFF97316),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -292,14 +609,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color(0xFF6366F1),
-                          Color(0xFF8B5CF6),
+                          Color(0xFFF97316),
+                          Color(0xFFEA580C),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.3),
+                          color: const Color(0xFFF97316).withOpacity(0.3),
                           blurRadius: 15,
                           offset: const Offset(0, 6),
                         ),
@@ -378,8 +695,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   // ==============================================
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color lightColor = Color(0xFFEEF2FF);
+    const Color primaryColor = Color(0xFFF97316);
+    const Color lightColor = Color(0xFFFFF3E8);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -438,7 +755,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                 const SizedBox(height: 60),
 
-                // Welcome Section - Clean & Single Welcome Back
+                // Welcome Section
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Column(
@@ -518,10 +835,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
-                                    return 'Please enter your email';
+                                    return 'Please enter your email or username';
                                   }
-                                  if (!value.contains('@')) {
+                                  if (value.contains('@') && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                                     return 'Please enter a valid email';
+                                  }
+                                  if (!value.contains('@') && value.length < 2) {
+                                    return 'Username must be at least 2 characters';
                                   }
                                   return null;
                                 },
@@ -628,29 +948,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Reset password feature coming soon',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        backgroundColor: primaryColor,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                        ),
-                                        margin: const EdgeInsets.all(16),
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ForgotPasswordScreen(),
                                       ),
                                     );
                                   },
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 4,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                   ),
                                   child: Text(
                                     'Forgot Password?',
@@ -694,14 +1000,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      Color(0xFF6366F1),
-                                      Color(0xFF8B5CF6),
+                                      Color(0xFFF97316),
+                                      Color(0xFFEA580C),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF6366F1).withOpacity(0.35),
+                                      color: const Color(0xFFF97316).withOpacity(0.35),
                                       blurRadius: 20,
                                       offset: const Offset(0, 8),
                                     ),

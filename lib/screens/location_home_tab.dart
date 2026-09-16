@@ -1,17 +1,17 @@
-// location_home_tab.dart - IMAGE CACHING FIX
+// location_home_tab.dart - WITH PROPER IMAGE CACHING (FIXED) - Orange Theme
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data' show Uint8List;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tiffinwales/screens/subscription_list_screen.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:tiffinwales/subscription/subscription_list_screen.dart';
+import '../subscription/subscription_order_screen.dart';
 import 'home_screen.dart';
 import '../models/subscription_models.dart';
 import '../services/subscription_service.dart';
-import '../screens/subscription_order_screen.dart';
-
-// Cache manager for images
+import 'meal_plan_order_screen.dart';
 
 class LocationHomeTab extends StatefulWidget {
   final String locationName;
@@ -54,9 +54,13 @@ class _LocationHomeTabState extends State<LocationHomeTab>
   bool _isLoadingPlans = true;
   String? _plansError;
 
-  // Image cache map to prevent reloading
-  final Map<String, Uint8List> _imageCache = {};
-  bool _isImageLoading = false;
+  // ==============================================
+  // IMAGE CACHE - STATIC SO IT'S SHARED ACROSS ALL INSTANCES
+  // ==============================================
+  static final Map<String, Uint8List> _imageCache = {};
+  static final Map<String, String> _imageUrlCache = {};
+  static final Map<String, bool> _imageLoadingStatus = {};
+  static bool _imagesPreCached = false;
 
   @override
   void initState() {
@@ -73,6 +77,11 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     _pageController = PageController(viewportFraction: 0.85);
     _loadSubscriptionPlans();
     _startAutoScroll();
+
+    if (!_imagesPreCached) {
+      _preCacheImages();
+      _imagesPreCached = true;
+    }
   }
 
   @override
@@ -83,6 +92,35 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     _timer.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  // ==============================================
+  // PRE-CACHE IMAGES - ONLY CALLED ONCE
+  // ==============================================
+  void _preCacheImages() {
+    for (final item in widget.menuItems) {
+      final imageBase64 = (item['image_base64'] ?? '').toString();
+      final imageUrl = (item['image_url'] ?? '').toString();
+      final cacheKey = 'menu_${item['id'] ?? item['name']}';
+
+      if (imageBase64.isNotEmpty &&
+          !imageBase64.startsWith('SVG:') &&
+          !_imageCache.containsKey(cacheKey)) {
+        try {
+          final bytes = base64Decode(imageBase64);
+          String content = utf8.decode(bytes, allowMalformed: true);
+          if (!content.contains('<svg') && !content.contains('<?xml')) {
+            _imageCache[cacheKey] = bytes;
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      if (imageUrl.isNotEmpty && !_imageUrlCache.containsKey(cacheKey)) {
+        _imageUrlCache[cacheKey] = imageUrl;
+      }
+    }
   }
 
   // ==============================================
@@ -109,12 +147,13 @@ class _LocationHomeTabState extends State<LocationHomeTab>
 
           loadedPlans.sort((a, b) => a.durationDays.compareTo(b.durationDays));
 
-          // Pre-cache images
           for (var plan in loadedPlans) {
             if (plan.hasImage && plan.imageBase64 != null) {
               try {
                 final bytes = base64Decode(plan.imageBase64!);
-                _imageCache[plan.id.toString()] = bytes;
+                if (!_imageCache.containsKey(plan.id.toString())) {
+                  _imageCache[plan.id.toString()] = bytes;
+                }
               } catch (e) {
                 // Ignore decode errors
               }
@@ -172,7 +211,9 @@ class _LocationHomeTabState extends State<LocationHomeTab>
       } else {
         _filteredMenuItems = widget.menuItems.where((item) {
           final name = (item['name'] ?? '').toString().toLowerCase();
-          final description = (item['description'] ?? '').toString().toLowerCase();
+          final description = (item['description'] ?? '')
+              .toString()
+              .toLowerCase();
           return name.contains(query) || description.contains(query);
         }).toList();
         _isSearching = true;
@@ -184,12 +225,13 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SubscriptionOrderScreen(
-          locationName: widget.locationName,
-          userEmail: widget.email,
-          username: widget.username,
-          selectedPlan: plan,
-        ),
+        builder: (context) =>
+            SubscriptionOrderScreen(
+              locationName: widget.locationName,
+              userEmail: widget.email,
+              username: widget.username,
+              selectedPlan: plan,
+            ),
       ),
     );
   }
@@ -198,21 +240,22 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SubscriptionListScreen(
-          locationName: widget.locationName,
-          userEmail: widget.email,
-          username: widget.username,
-        ),
+        builder: (context) =>
+            SubscriptionListScreen(
+              locationName: widget.locationName,
+              userEmail: widget.email,
+              username: widget.username,
+            ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1);
-    const Color lightPurple = Color(0xFFEEF2FF);
-    const Color darkColor = Color(0xFF1A202C);
-    const Color lightBg = Color(0xFFF7FAFC);
+    const Color primaryColor = Color(0xFFF97316);       // Logo orange
+    const Color lightPurple = Color(0xFFFFF3E8);         // Warm orange tint
+    const Color darkColor = Color(0xFF1C1C1E);           // Logo charcoal
+    const Color lightBg = Color(0xFFFAFAFA);             // Clean background
 
     return Scaffold(
       backgroundColor: lightBg,
@@ -222,7 +265,7 @@ class _LocationHomeTabState extends State<LocationHomeTab>
           _buildSearchBar(primaryColor),
           if (!_isSearching) _buildSubscriptionPlansSection(primaryColor),
           _buildMenuHeader(darkColor),
-          _buildMenuGrid(primaryColor, lightPurple),
+          _buildMenuList(primaryColor, lightPurple),
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
@@ -308,11 +351,12 @@ class _LocationHomeTabState extends State<LocationHomeTab>
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => HomeScreen(
-                      email: widget.email,
-                      username: widget.username,
-                      locationName: widget.locationName,
-                    ),
+                    builder: (context) =>
+                        HomeScreen(
+                          email: widget.email,
+                          username: widget.username,
+                          locationName: widget.locationName,
+                        ),
                   ),
                 );
               },
@@ -486,7 +530,7 @@ class _LocationHomeTabState extends State<LocationHomeTab>
                   style: GoogleFonts.poppins(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A202C),
+                    color: const Color(0xFF1C1C1E),
                   ),
                 ),
                 GestureDetector(
@@ -528,518 +572,409 @@ class _LocationHomeTabState extends State<LocationHomeTab>
   }
 
   // ==============================================
-  // SUBSCRIPTION CARD - WITH CACHED IMAGES
+  // SUBSCRIPTION CARD - PREMIUM REDESIGN
   // ==============================================
   Widget _buildSubscriptionCard(SubscriptionPlan plan, Color primaryColor) {
-    final Map<String, List<Color>> planGradients = {
-      '3days': [const Color(0xFF667EEA), const Color(0xFF764BA2)],
-      '5days': [const Color(0xFFF093FB), const Color(0xFFF5576C)],
-      '7days': [const Color(0xFF4FACFE), const Color(0xFF00F2FE)],
-      '15days': [const Color(0xFF43E97B), const Color(0xFF38F9D7)],
-      '30days': [const Color(0xFFFA709A), const Color(0xFFFEE140)],
+    final Map<String, List<Color>> planAccents = {
+      '3days':  [const Color(0xFFF97316), const Color(0xFFEA580C)],
+      '5days':  [const Color(0xFFF97316), const Color(0xFFEA580C)],
+      '7days':  [const Color(0xFFF97316), const Color(0xFFEA580C)],
+      '15days': [const Color(0xFFF97316), const Color(0xFFEA580C)],
+      '30days': [const Color(0xFFF97316), const Color(0xFFEA580C)],
     };
 
-    final List<Color> gradientColors = planGradients[plan.planType] ??
-        [const Color(0xFF6366F1), const Color(0xFF8B5CF6)];
+    final List<Color> accentColors = planAccents[plan.planType] ??
+        [const Color(0xFFF97316), const Color(0xFFEA580C)];
+
+    final Color primaryAccent = accentColors[0];
+    final Color secondaryAccent = accentColors[1];
 
     final bool hasImage = plan.hasImage;
 
-    final Map<String, String> planEmojis = {
-      '3days': '🌿',
-      '5days': '🔥',
-      '7days': '⭐',
-      '15days': '👑',
-      '30days': '💎',
-    };
-    final String emoji = planEmojis[plan.planType] ?? '📦';
-
-    // Get cached image bytes
     Uint8List? cachedImage;
     if (hasImage && plan.imageBase64 != null) {
-      try {
-        // Check cache first
-        if (_imageCache.containsKey(plan.id.toString())) {
-          cachedImage = _imageCache[plan.id.toString()];
-        } else {
-          // Decode and cache
+      if (_imageCache.containsKey(plan.id.toString())) {
+        cachedImage = _imageCache[plan.id.toString()];
+      } else {
+        try {
           final bytes = base64Decode(plan.imageBase64!);
           _imageCache[plan.id.toString()] = bytes;
           cachedImage = bytes;
+        } catch (e) {
+          cachedImage = null;
         }
-      } catch (e) {
-        cachedImage = null;
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors[0].withOpacity(0.35),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-            spreadRadius: -6,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(24),
+          highlightColor: Colors.transparent,
+          splashColor: primaryColor.withOpacity(0.05),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -4,
+                ),
+                BoxShadow(
+                  color: primaryAccent.withOpacity(0.08),
+                  blurRadius: 32,
+                  offset: const Offset(0, 12),
+                  spreadRadius: -8,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeroImage(
+                  plan: plan,
+                  cachedImage: cachedImage,
+                  accentColors: accentColors,
+                  primaryAccent: primaryAccent,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildPlanNameAndPrice(
+                        plan: plan,
+                        primaryAccent: primaryAccent,
+                      ),
+                      const SizedBox(height: 4),
+                      _buildDescription(plan: plan),
+                      const SizedBox(height: 12),
+                      _buildFeaturesRow(
+                        plan: plan,
+                        primaryAccent: primaryAccent,
+                        secondaryAccent: secondaryAccent,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        height: 1,
+                        color: Colors.grey[100],
+                      ),
+                      const SizedBox(height: 14),
+                      _buildBottomRow(
+                        plan: plan,
+                        primaryAccent: primaryAccent,
+                        secondaryAccent: secondaryAccent,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+        ),
+      ),
+    );
+  }
+
+  // ==============================================
+  // HERO IMAGE
+  // ==============================================
+  Widget _buildHeroImage({
+    required SubscriptionPlan plan,
+    required Uint8List? cachedImage,
+    required List<Color> accentColors,
+    required Color primaryAccent,
+  }) {
+    final bool hasImage = cachedImage != null;
+
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Container(
+            height: 170,
+            width: double.infinity,
+            color: Colors.grey[50],
+            child: hasImage
+                ? Image.memory(
+              cachedImage!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildImageFallback(
+                  plan: plan,
+                  accentColors: accentColors,
+                );
+              },
+            )
+                : _buildImageFallback(
+              plan: plan,
+              accentColors: accentColors,
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.02),
+                  Colors.black.withOpacity(0.15),
+                  Colors.black.withOpacity(0.35),
+                ],
+                stops: const [0.0, 0.3, 0.5, 0.75, 1.0],
+              ),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==============================================
+  // PLAN NAME & PRICE
+  // ==============================================
+  Widget _buildPlanNameAndPrice({
+    required SubscriptionPlan plan,
+    required Color primaryAccent,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            plan.planName,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1C1C1E),
+              height: 1.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: primaryAccent.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            plan.formattedPrice,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: primaryAccent,
+              height: 1.2,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==============================================
+  // DESCRIPTION
+  // ==============================================
+  Widget _buildDescription({required SubscriptionPlan plan}) {
+    return Text(
+      plan.description.isNotEmpty
+          ? plan.description
+          : '${plan.durationDays}-day meal plan with fresh, homemade dishes',
+      style: GoogleFonts.poppins(
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+        color: Colors.grey[500],
+        height: 1.4,
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  // ==============================================
+  // FEATURES ROW
+  // ==============================================
+  Widget _buildFeaturesRow({
+    required SubscriptionPlan plan,
+    required Color primaryAccent,
+    required Color secondaryAccent,
+  }) {
+    final features = [
+      {
+        'icon': Icons.restaurant,
+        'label': '${plan.maxDishes} Dishes',
+      },
+      {
+        'icon': Icons.calendar_today,
+        'label': '${plan.durationDays} Days',
+      },
+      {
+        'icon': Icons.timer,
+        'label': 'Flexible',
+      },
+    ];
+
+    return Row(
+      children: features.map((feature) {
+        return Expanded(
+          child: _buildFeatureItem(
+            icon: feature['icon'] as IconData,
+            label: feature['label'] as String,
+            primaryAccent: primaryAccent,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFeatureItem({
+    required IconData icon,
+    required String label,
+    required Color primaryAccent,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+      decoration: BoxDecoration(
+        color: primaryAccent.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: primaryAccent.withOpacity(0.06),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: primaryAccent.withOpacity(0.7),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1C1C1E),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Container(
-          width: double.infinity,
-          height: 260,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ============================================
-              // TOP SECTION: IMAGE WITH PREMIUM OVERLAY
-              // ============================================
-              Stack(
-                children: [
-                  // Image Container - USING CACHED IMAGE
-                  Container(
-                    height: 155,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: hasImage && cachedImage != null
-                          ? null
-                          : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: gradientColors,
-                      ),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(28),
-                        topRight: Radius.circular(28),
-                      ),
-                    ),
-                    child: hasImage && cachedImage != null
-                        ? ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(28),
-                        topRight: Radius.circular(28),
-                      ),
-                      child: Image.memory(
-                        cachedImage,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildImageFallback(plan, gradientColors);
-                        },
-                      ),
-                    )
-                        : _buildImageFallback(plan, gradientColors),
-                  ),
+    );
+  }
 
-                  // Premium Gradient Overlay
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.6),
-                            Colors.black.withOpacity(0.85),
-                          ],
-                          stops: const [0.0, 0.2, 0.4, 0.7, 1.0],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(28),
-                          topRight: Radius.circular(28),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Premium Shine Effect
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(28),
-                          topRight: Radius.circular(28),
-                        ),
-                        gradient: LinearGradient(
-                          begin: Alignment.topRight,
-                          end: Alignment.bottomLeft,
-                          colors: [
-                            Colors.white.withOpacity(0.08),
-                            Colors.transparent,
-                            Colors.white.withOpacity(0.03),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Badges
-                  Positioned(
-                    top: 14,
-                    right: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: gradientColors,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: gradientColors[0].withOpacity(0.5),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            plan.isPopular ? Icons.star_rounded : Icons.verified_rounded,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            plan.tag,
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  Positioned(
-                    top: 14,
-                    left: 14,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.25),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  Positioned(
-                    bottom: 14,
-                    left: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.calendar_today,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${plan.durationDays} Days',
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  Positioned(
-                    bottom: 14,
-                    right: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.restaurant,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${plan.maxDishes} Items',
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  Positioned(
-                    top: -30,
-                    right: -30,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.06),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+  // ==============================================
+  // BOTTOM ROW: TRUST + CTA
+  // ==============================================
+  Widget _buildBottomRow({
+    required SubscriptionPlan plan,
+    required Color primaryAccent,
+    required Color secondaryAccent,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.shield_rounded,
+              size: 14,
+              color: const Color(0xFFF97316),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Secure Checkout',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFFF97316),
               ),
+            ),
+          ],
+        ),
+        _buildCTAButton(
+          plan: plan,
+          primaryAccent: primaryAccent,
+          secondaryAccent: secondaryAccent,
+        ),
+      ],
+    );
+  }
 
-              // Content Section
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            plan.planName,
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1A202C),
-                              height: 1.1,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: gradientColors,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: gradientColors[0].withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            plan.formattedPrice,
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      plan.description.isNotEmpty
-                          ? plan.description
-                          : '${plan.durationDays} Days Meal Plan',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.grey[500],
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildPremiumFeature(
-                          icon: Icons.restaurant,
-                          label: '${plan.maxDishes} Dishes',
-                          color: gradientColors[0],
-                        ),
-                        const SizedBox(width: 12),
-                        _buildPremiumFeature(
-                          icon: Icons.calendar_today,
-                          label: '${plan.durationDays} Days',
-                          color: gradientColors[1],
-                        ),
-                        const SizedBox(width: 12),
-                        _buildPremiumFeature(
-                          icon: Icons.schedule,
-                          label: 'Flexible',
-                          color: const Color(0xFF6366F1),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      height: 1.5,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            gradientColors[0].withOpacity(0.15),
-                            gradientColors[1].withOpacity(0.15),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.verified,
-                              size: 14,
-                              color: Colors.green[700],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '100% Secure',
-                              style: GoogleFonts.poppins(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: gradientColors,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: gradientColors[0].withOpacity(0.4),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: () => _navigateToSubscriptionOrder(plan),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                              minimumSize: const Size(90, 38),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "Order Now",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 16,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.lock_outline,
-                          size: 10,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Secure payment • One-time charge',
-                          style: GoogleFonts.poppins(
-                            fontSize: 8,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+  // ==============================================
+  // CTA BUTTON
+  // ==============================================
+  Widget _buildCTAButton({
+    required SubscriptionPlan plan,
+    required Color primaryAccent,
+    required Color secondaryAccent,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _navigateToSubscriptionOrder(plan),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [primaryAccent, secondaryAccent],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: primaryAccent.withOpacity(0.35),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Choose Plan',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
                 ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 16,
               ),
             ],
           ),
@@ -1049,76 +984,84 @@ class _LocationHomeTabState extends State<LocationHomeTab>
   }
 
   // ==============================================
-  // IMAGE FALLBACK
+  // IMAGE FALLBACK - PREMIUM
   // ==============================================
-  Widget _buildImageFallback(SubscriptionPlan plan, List<Color> gradientColors) {
+  Widget _buildImageFallback({
+    required SubscriptionPlan plan,
+    required List<Color> accentColors,
+  }) {
+    final Map<String, String> planEmojis = {
+      '3days': '🌿',
+      '5days': '🔥',
+      '7days': '⭐',
+      '15days': '👑',
+      '30days': '💎',
+    };
+    final String emoji = planEmojis[plan.planType] ?? '📦';
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: gradientColors,
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              plan.planName.substring(0, 1).toUpperCase(),
-              style: GoogleFonts.poppins(
-                fontSize: 42,
-                fontWeight: FontWeight.w700,
-                color: Colors.white.withOpacity(0.12),
-              ),
-            ),
-            Text(
-              '${plan.durationDays} Days',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.25),
-              ),
-            ),
+          colors: [
+            accentColors[0].withOpacity(0.15),
+            accentColors[1].withOpacity(0.25),
           ],
         ),
       ),
-    );
-  }
-
-  // ==============================================
-  // PREMIUM FEATURE WIDGET
-  // ==============================================
-  Widget _buildPremiumFeature({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: color,
+          Positioned(
+            top: -20,
+            right: -20,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accentColors[0].withOpacity(0.06),
+              ),
+            ),
           ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF1A202C),
+          Positioned(
+            bottom: -30,
+            left: -30,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accentColors[1].withOpacity(0.06),
+              ),
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  emoji,
+                  style: const TextStyle(fontSize: 42),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  plan.planName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: accentColors[0].withOpacity(0.5),
+                  ),
+                ),
+                Text(
+                  '${plan.durationDays} Days',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: accentColors[0].withOpacity(0.3),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1160,9 +1103,9 @@ class _LocationHomeTabState extends State<LocationHomeTab>
   }
 
   // ==============================================
-  // MENU GRID - WITH CACHED IMAGES
+  // MENU LIST - ONE ITEM PER LINE
   // ==============================================
-  Widget _buildMenuGrid(Color primaryColor, Color lightPurple) {
+  Widget _buildMenuList(Color primaryColor, Color lightPurple) {
     final items = _filteredMenuItems;
 
     if (items.isEmpty && _isSearching) {
@@ -1200,14 +1143,8 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.72,
-          crossAxisSpacing: 14,
-          mainAxisSpacing: 14,
-        ),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 20),
+      sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
               (context, index) {
             if (index >= items.length) return null;
@@ -1220,8 +1157,51 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     );
   }
 
+  bool _isMealPlanItem(String itemName) {
+    if (itemName.isEmpty) return false;
+
+    final lowerName = itemName.toLowerCase().trim();
+
+    if (lowerName.contains('meal plan') ||
+        lowerName.contains('meal-plan') ||
+        lowerName.contains('mealplan')) {
+      return true;
+    }
+
+    final regex = RegExp(r'\d+\s*[-\s]?\s*days?\s*meal');
+    if (regex.hasMatch(lowerName)) {
+      return true;
+    }
+
+    if (lowerName.contains('weekly meal') ||
+        lowerName.contains('monthly meal') ||
+        lowerName.contains('daily meal')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  int _parseDishCountFromName(String itemName) {
+    if (itemName.isEmpty) return 3;
+
+    final lower = itemName.toLowerCase();
+
+    final match = RegExp(r'(\d+)\s*[-\s]?\s*days?').firstMatch(lower);
+    if (match != null) {
+      final parsed = int.tryParse(match.group(1) ?? '');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+
+    if (lower.contains('weekly')) return 7;
+    if (lower.contains('monthly')) return 30;
+    if (lower.contains('daily')) return 1;
+
+    return 3;
+  }
+
   // ==============================================
-  // MENU ITEM CARD - WITH CACHED IMAGES
+  // MENU ITEM CARD
   // ==============================================
   Widget _buildMenuItemCard(
       Map<String, dynamic> item,
@@ -1229,151 +1209,405 @@ class _LocationHomeTabState extends State<LocationHomeTab>
       Color lightPurple,
       int index,
       ) {
+    final String imageUrl = item['image_url'] ?? '';
     final String imageBase64 = item['image_base64'] ?? '';
     final String name = item['name'] ?? 'Unknown';
     final double price = _parsePrice(item['price']);
     final String description = item['description'] ?? '';
+    final String? category = item['category'];
 
-    // Cache menu item images
-    Uint8List? cachedImage;
-    if (imageBase64.isNotEmpty) {
-      final cacheKey = 'menu_${item['id'] ?? name}';
-      if (_imageCache.containsKey(cacheKey)) {
-        cachedImage = _imageCache[cacheKey];
-      } else {
-        try {
-          final bytes = base64Decode(imageBase64);
-          _imageCache[cacheKey] = bytes;
-          cachedImage = bytes;
-        } catch (e) {
-          cachedImage = null;
-        }
-      }
-    }
+    final double? rating = () {
+      final val = item['rating'];
+      if (val == null) return null;
+      if (val is double) return val;
+      if (val is int) return val.toDouble();
+      if (val is String) return double.tryParse(val);
+      return null;
+    }();
+
+    final bool isVeg = item['is_veg'] ?? true;
+    final int? totalRatings = () {
+      final val = item['total_ratings'];
+      if (val == null) return null;
+      if (val is int) return val;
+      if (val is double) return val.toInt();
+      if (val is String) return int.tryParse(val);
+      return null;
+    }();
+
+    final String? discount = item['discount'];
+    final bool popular = item['popular'] == true;
+    final double? originalPrice = () {
+      final val = item['original_price'];
+      if (val == null) return null;
+      if (val is double) return val;
+      if (val is int) return val.toDouble();
+      if (val is String) return double.tryParse(val);
+      return null;
+    }();
+
+    final cacheKey = 'menu_${item['id'] ?? name}';
+
+    Uint8List? cachedImage = _imageCache[cacheKey];
+    bool useNetworkImage = _imageUrlCache.containsKey(cacheKey);
+
+    final String itemKey = '${item['id'] ?? name}_$index';
 
     return FadeTransition(
       opacity: _animationController,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+        scale: Tween<double>(begin: 0.97, end: 1.0).animate(
           CurvedAnimation(
             parent: _animationController,
             curve: Interval(
               0.0,
-              0.6 + (index * 0.05),
+              0.5 + (index * 0.015),
               curve: Curves.easeOutCubic,
             ),
           ),
         ),
         child: Container(
+          key: ValueKey(itemKey),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
                 blurRadius: 12,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 2),
               ),
             ],
+            border: Border.all(
+              color: Colors.grey.shade50,
+              width: 1,
+            ),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Container(
-                  height: 140,
-                  width: double.infinity,
-                  color: lightPurple,
-                  child: cachedImage != null
-                      ? Image.memory(
-                    cachedImage,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildFallbackImage(name, primaryColor);
-                    },
-                  )
-                      : _buildFallbackImage(name, primaryColor),
-                ),
-              ),
+              // IMAGE SECTION (Left - Circular)
               Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.all(10),
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1A202C),
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            primaryColor.withOpacity(0.08),
+                            primaryColor.withOpacity(0.03),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      description.isNotEmpty ? description : 'Delicious dish',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey[500],
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.15),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '\$${price.toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: primaryColor,
+                      child: ClipOval(
+                        child: Container(
+                          color: lightPurple,
+                          child: _buildCachedImageWidget(
+                            cachedImage: cachedImage,
+                            useNetworkImage: useNetworkImage,
+                            imageUrl: imageUrl,
+                            imageBase64: imageBase64,
+                            name: name,
+                            primaryColor: primaryColor,
+                            cacheKey: cacheKey,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () => widget.onAddToCart(item),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: primaryColor,
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: primaryColor.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
                             ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.add_rounded,
-                                  color: Colors.white,
-                                  size: 16,
+                          ],
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: isVeg ? Colors.green : Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isVeg ? Icons.circle : Icons.square,
+                            color: Colors.white,
+                            size: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (discount != null && discount.isNotEmpty)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFFFF6B6B),
+                                const Color(0xFFFF3366),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            discount,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // CONTENT SECTION (Right)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 4,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1C1C1E),
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (rating != null && rating > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.green,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    rating.toStringAsFixed(1),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  if (totalRatings != null) ...[
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      '(${_formatRatingCount(totalRatings)})',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      if (category != null && category.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            category,
+                            style: GoogleFonts.poppins(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description.isNotEmpty ? description : 'Delicious dish',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '\$${price.toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1C1C1E),
                                 ),
+                              ),
+                              if (originalPrice != null) ...[
                                 const SizedBox(width: 4),
                                 Text(
-                                  "ADD",
+                                  '\$${originalPrice.toStringAsFixed(2)}',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.grey[400],
+                                    decoration: TextDecoration.lineThrough,
+                                    decorationColor: Colors.grey[400],
                                   ),
                                 ),
                               ],
+                            ],
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              if (_isMealPlanItem(name)) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MealPlanOrderScreen(
+                                      locationName: widget.locationName,
+                                      userEmail: widget.email,
+                                      username: widget.username,
+                                      menuItem: item,
+                                      requiredDishCount: _parseDishCountFromName(name),
+                                      onAddToCart: widget.onAddToCart,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                widget.onAddToCart(item);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: primaryColor.withOpacity(0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isMealPlanItem(name) ? Icons.tune_rounded : Icons.add_rounded,
+                                    color: primaryColor,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isMealPlanItem(name) ? "Customize" : "Add",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: primaryColor,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
+                        ],
+                      ),
+                      if (popular)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.whatshot_rounded,
+                                size: 12,
+                                color: const Color(0xFFFF6B6B),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                'Popular',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFFFF6B6B),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1383,28 +1617,120 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     );
   }
 
-  Widget _buildFallbackImage(String name, Color primaryColor) {
+  // ==============================================
+  // CACHED IMAGE WIDGET
+  // ==============================================
+  Widget _buildCachedImageWidget({
+    required Uint8List? cachedImage,
+    required bool useNetworkImage,
+    required String imageUrl,
+    required String imageBase64,
+    required String name,
+    required Color primaryColor,
+    required String cacheKey,
+  }) {
+    if (cachedImage != null) {
+      return Image.memory(
+        cachedImage,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildCircularFallback(name, primaryColor);
+        },
+      );
+    }
+
+    if (useNetworkImage && imageUrl.isNotEmpty) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        cacheWidth: 200,
+        cacheHeight: 200,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            return child;
+          }
+          return Container(
+            color: Colors.grey.shade50,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: primaryColor,
+                ),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          if (imageBase64.isNotEmpty) {
+            try {
+              final bytes = base64Decode(imageBase64);
+              _imageCache[cacheKey] = bytes;
+              return Image.memory(
+                bytes,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildCircularFallback(name, primaryColor);
+                },
+              );
+            } catch (e) {
+              return _buildCircularFallback(name, primaryColor);
+            }
+          }
+          return _buildCircularFallback(name, primaryColor);
+        },
+      );
+    }
+
+    if (imageBase64.isNotEmpty) {
+      try {
+        final bytes = base64Decode(imageBase64);
+        _imageCache[cacheKey] = bytes;
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildCircularFallback(name, primaryColor);
+          },
+        );
+      } catch (e) {
+        return _buildCircularFallback(name, primaryColor);
+      }
+    }
+
+    return _buildCircularFallback(name, primaryColor);
+  }
+
+  // ==============================================
+  // CIRCULAR FALLBACK IMAGE
+  // ==============================================
+  Widget _buildCircularFallback(String name, Color primaryColor) {
     return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            primaryColor.withOpacity(0.08),
-            primaryColor.withOpacity(0.2),
-          ],
-        ),
-      ),
+      color: Colors.grey.shade50,
       child: Center(
-        child: Text(
-          name.substring(0, 1).toUpperCase(),
-          style: GoogleFonts.poppins(
-            fontSize: 36,
-            fontWeight: FontWeight.w700,
-            color: primaryColor.withOpacity(0.4),
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.restaurant_menu_rounded,
+              size: 24,
+              color: primaryColor.withOpacity(0.2),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: primaryColor.withOpacity(0.4),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1420,12 +1746,21 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     return 'Evening';
   }
 
-  double _parsePrice(dynamic priceValue) {
-    if (priceValue == null) return 0.0;
-    if (priceValue is double) return priceValue;
-    if (priceValue is int) return priceValue.toDouble();
-    if (priceValue is String) return double.tryParse(priceValue) ?? 0.0;
-    if (priceValue is num) return priceValue.toDouble();
+  String _formatRatingCount(int count) {
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    } else if (count >= 100) {
+      return '${(count / 100).toStringAsFixed(0)}K';
+    }
+    return count.toString();
+  }
+
+  double _parsePrice(dynamic price) {
+    if (price is String) {
+      return double.tryParse(price) ?? 0.0;
+    } else if (price is num) {
+      return price.toDouble();
+    }
     return 0.0;
   }
 }

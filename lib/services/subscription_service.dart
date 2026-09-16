@@ -49,9 +49,8 @@ class SubscriptionService {
     }
   }
 
-  // ==============================================
-  // CREATE SUBSCRIPTION
-  // ==============================================
+  // lib/services/subscription_service.dart
+
   static Future<Map<String, dynamic>> createSubscription({
     required String userEmail,
     required String locationName,
@@ -65,6 +64,13 @@ class SubscriptionService {
     required String deliveryDate,
     required String deliveryTimeSlot,
     String specialInstructions = '',
+    // NEW: Payment fields
+    String paymentStatus = 'pending',
+    String paymentId = '',
+    String paymentMethod = 'Halo Payments',
+    double deliveryFee = 0.0,
+    double totalDeliveryFee = 0.0,
+    double distance = 0.0,
   }) async {
     try {
       var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
@@ -81,6 +87,14 @@ class SubscriptionService {
       request.fields['delivery_date'] = deliveryDate;
       request.fields['delivery_time_slot'] = deliveryTimeSlot;
       request.fields['special_instructions'] = specialInstructions;
+
+      // NEW: Payment fields
+      request.fields['payment_status'] = paymentStatus;
+      request.fields['payment_id'] = paymentId;
+      request.fields['payment_method'] = paymentMethod;
+      request.fields['delivery_fee'] = deliveryFee.toString();
+      request.fields['total_delivery_fee'] = totalDeliveryFee.toString();
+      request.fields['distance'] = distance.toString();
 
       var response = await request.send();
       var responseBody = await response.stream.bytesToString();
