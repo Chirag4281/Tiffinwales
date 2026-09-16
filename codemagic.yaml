@@ -21,7 +21,6 @@ workflows:
         BUILD_MODE: "release"
 
     scripts:
-
       - name: Get Flutter dependencies
         script: |
           flutter clean
@@ -33,46 +32,16 @@ workflows:
           pod install --repo-update
           cd ..
 
-      - name: Configure iOS automatic signing
+      - name: Configure automatic iOS code signing
         script: |
-          echo "========================================"
-          echo "CONFIGURING IOS CODE SIGNING"
-          echo "========================================"
-
-          echo "Bundle ID:"
-          echo "$BUNDLE_ID"
-
-          echo "Available provisioning profiles:"
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
-
-          echo "Using Codemagic signing profiles..."
           xcode-project use-profiles
-
-      - name: Verify Xcode signing configuration
-        script: |
-          echo "========================================"
-          echo "VERIFYING XCODE PROJECT"
-          echo "========================================"
-
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -showBuildSettings | \
-            grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN|PROVISIONING_PROFILE"
 
       - name: Build IPA
         script: |
-          echo "========================================"
-          echo "BUILDING SIGNED IPA"
-          echo "========================================"
-
-          flutter build ipa \
-            --release \
-            --export-options-plist=/Users/builder/export_options.plist
+          flutter build ipa --release
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
 
     publishing:
       app_store_connect:
