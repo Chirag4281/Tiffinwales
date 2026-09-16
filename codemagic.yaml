@@ -22,28 +22,53 @@ workflows:
 
     scripts:
 
-      # 1. Get Flutter dependencies
-      - name: Get dependencies
+      - name: Get Flutter dependencies
         script: |
           flutter clean
           flutter pub get
 
-      # 2. Install CocoaPods
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods
         script: |
           cd ios
           pod install --repo-update
           cd ..
 
-      # 3. AUTOMATIC iOS CODE SIGNING
-      - name: Configure automatic code signing
+      - name: Configure iOS automatic signing
         script: |
+          echo "========================================"
+          echo "CONFIGURING IOS CODE SIGNING"
+          echo "========================================"
+
+          echo "Bundle ID:"
+          echo "$BUNDLE_ID"
+
+          echo "Available provisioning profiles:"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
+
+          echo "Using Codemagic signing profiles..."
           xcode-project use-profiles
 
-      # 4. Build signed IPA
+      - name: Verify Xcode signing configuration
+        script: |
+          echo "========================================"
+          echo "VERIFYING XCODE PROJECT"
+          echo "========================================"
+
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -showBuildSettings | \
+            grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN|PROVISIONING_PROFILE"
+
       - name: Build IPA
         script: |
-          flutter build ipa --release
+          echo "========================================"
+          echo "BUILDING SIGNED IPA"
+          echo "========================================"
+
+          flutter build ipa \
+            --release \
+            --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -53,4 +78,4 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: true
+        submit_to_app_store: false
