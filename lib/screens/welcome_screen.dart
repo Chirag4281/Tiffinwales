@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 import 'login_screen.dart';
@@ -17,9 +18,11 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen>
     with TickerProviderStateMixin {
-  final PageController _pageController = PageController();
   int _currentPage = 0;
   late Timer _timer;
+
+  // Video Controller
+  late VideoPlayerController _videoController;
 
   // Animation Controllers
   late AnimationController _entranceController;
@@ -32,15 +35,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _logoAnimation;
 
-  // Background images
-  final List<String> _backgroundImages = [
-    'assets/images/f1.jpg',
-    'assets/images/f2.jpg',
-    'assets/images/f1.jpg',
-    'assets/images/f2.jpg',
-  ];
-
-  // Taglines for each image
+  // Taglines for each slide
   final List<String> _taglines = [
     'Authentic Indian Cuisine',
     'Fresh Daily Meals',
@@ -48,7 +43,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     'Delivered Fresh',
   ];
 
-  // Subtitles for each image
+  // Subtitles for each slide
   final List<String> _subtitles = [
     'Experience the rich flavors of India',
     'Cooked with love, delivered with care',
@@ -60,7 +55,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   void initState() {
     super.initState();
 
-    // 1. Entrance Animations
+    // 1. Initialize Video Player
+    _videoController = VideoPlayerController.asset('assets/video.mp4')
+      ..initialize().then((_) {
+        _videoController.setLooping(true);
+        _videoController.setVolume(0);
+        _videoController.play();
+        setState(() {});
+      });
+
+    // 2. Entrance Animations
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -96,32 +100,28 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
     _entranceController.forward();
 
-    // 2. Breathing Animation
+    // 3. Breathing Animation
     _breatheController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
 
-    // 3. Floating Animation
+    // 4. Floating Animation
     _floatController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
 
-    // 4. Auto-slide every 4 seconds
+    // 5. Auto-cycle taglines every 4 seconds
     _timer = Timer.periodic(const Duration(seconds: 4), (Timer timer) {
-      if (_currentPage < _backgroundImages.length - 1) {
+      if (_currentPage < _taglines.length - 1) {
         _currentPage++;
       } else {
         _currentPage = 0;
       }
 
-      if (_pageController.hasClients) {
-        _pageController.animateToPage(
-          _currentPage,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOut,
-        );
+      if (mounted) {
+        setState(() {});
       }
     });
   }
@@ -129,7 +129,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   void dispose() {
     _timer.cancel();
-    _pageController.dispose();
+    _videoController.dispose();
     _entranceController.dispose();
     _breatheController.dispose();
     _floatController.dispose();
@@ -139,7 +139,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   Widget build(BuildContext context) {
     const Color primaryPurple = Color(0xFF6366F1);
-    const Color lightPurple = Color(0xFFEEF2FF);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -149,23 +148,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       child: Scaffold(
         body: Stack(
           children: [
-            // Background Image Carousel
+            // Background Video
             Positioned.fill(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (int page) {
-                  setState(() {
-                    _currentPage = page;
-                  });
-                },
-                itemCount: _backgroundImages.length,
-                itemBuilder: (context, index) {
-                  return Image.asset(
-                    _backgroundImages[index],
-                    fit: BoxFit.cover,
-                  );
-                },
-              ),
+              child: _videoController.value.isInitialized
+                  ? FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _videoController.value.size.width,
+                  height: _videoController.value.size.height,
+                  child: VideoPlayer(_videoController),
+                ),
+              )
+                  : Container(color: Colors.black),
             ),
 
             // Gradient Overlay
@@ -187,31 +181,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               ),
             ),
 
-            // REMOVED: Dot Indicators Section - Commented out or deleted
-            // Positioned(
-            //   bottom: 180,
-            //   left: 0,
-            //   right: 0,
-            //   child: Row(
-            //     mainAxisAlignment: MainAxisAlignment.center,
-            //     children: List.generate(
-            //       _backgroundImages.length,
-            //           (index) => AnimatedContainer(
-            //         duration: const Duration(milliseconds: 300),
-            //         margin: const EdgeInsets.symmetric(horizontal: 4),
-            //         width: _currentPage == index ? 28 : 8,
-            //         height: 8,
-            //         decoration: BoxDecoration(
-            //           borderRadius: BorderRadius.circular(4),
-            //           color: _currentPage == index
-            //               ? Colors.white
-            //               : Colors.white.withOpacity(0.4),
-            //         ),
-            //       ),
-            //     ),
-            //   ),
-            // ),
-
             // Main Content
             SafeArea(
               child: Padding(
@@ -222,7 +191,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                     const Spacer(),
 
-                    // Dynamic Tagline Section (changes with carousel)
+                    // Dynamic Tagline Section (changes automatically)
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 500),
                       child: FadeTransition(
