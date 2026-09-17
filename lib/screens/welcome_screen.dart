@@ -327,7 +327,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                               style: GoogleFonts.poppins(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
-                                                color: primaryPurple,
+                                                color: Colors.deepOrange,
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
@@ -335,7 +335,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                             Icon(
                                               Icons.arrow_forward_rounded,
                                               size: 20,
-                                              color: primaryPurple,
+                                              color: Colors.deepOrange,
                                             ),
                                           ],
                                         ),
