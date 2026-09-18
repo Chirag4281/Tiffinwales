@@ -1,5 +1,5 @@
 // lib/screens/cart_screen.dart
-// Premium Cart Screen — with Meal Plan edit support
+// Premium Cart Screen — with Expandable Meal Plan cards
 
 import 'dart:async';
 import 'dart:convert';
@@ -16,26 +16,24 @@ import 'meal_plan_order_screen.dart';
 // THEME CONSTANTS
 // ============================================================
 class CartTheme {
-  static const Color primary = Color(0xFFF97316);        // Logo orange
-  static const Color primaryDark = Color(0xFFEA580C);    // Darker orange
-  static const Color secondary = Color(0xFFEA580C);      // Secondary orange
-  static const Color dark = Color(0xFF0F0F10);           // Deep charcoal
-  static const Color body = Color(0xFF1C1C1E);           // Logo charcoal
-  static const Color muted = Color(0xFF64748B);          // Neutral grey
-  static const Color softBg = Color(0xFFFAFAFA);         // Clean background
+  static const Color primary = Color(0xFFF97316);
+  static const Color primaryDark = Color(0xFFEA580C);
+  static const Color secondary = Color(0xFFEA580C);
+  static const Color dark = Color(0xFF0F0F10);
+  static const Color body = Color(0xFF1C1C1E);
+  static const Color muted = Color(0xFF64748B);
+  static const Color softBg = Color(0xFFFAFAFA);
   static const Color cardBg = Colors.white;
   static const Color accentGreen = Color(0xFF10B981);
   static const Color accentRed = Color(0xFFEF4444);
   static const Color accentAmber = Color(0xFFF59E0B);
 
-  // ✅ Orange gradient (Tiffin Wales brand)
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [Color(0xFFF97316), Color(0xFFEA580C)],
   );
 
-  // ✅ Orange gradient for the header
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -95,6 +93,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   String? _errorMessage;
   bool _isOperationInProgress = false;
   Timer? _debounceTimer;
+
+  // ✅ Track which meal-plan cards are expanded (by item_name)
+  final Set<String> _expandedItems = {};
 
   // Animations
   late AnimationController _entranceController;
@@ -157,8 +158,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
 
       final streamed = await request.send().timeout(
         const Duration(seconds: 10),
-        onTimeout: () =>
-        throw Exception('Connection timeout. Please try again.'),
+        onTimeout: () => throw Exception('Connection timeout. Please try again.'),
       );
 
       final body = await streamed.stream.bytesToString();
@@ -230,8 +230,13 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   }
 
   String _stripDishSuffix(String itemName) {
-    final idx = itemName.indexOf(' (');
-    return idx == -1 ? itemName : itemName.substring(0, idx).trim();
+    String name = itemName;
+    final tagIdx = name.lastIndexOf(' [');
+    if (tagIdx != -1 && name.endsWith(']')) {
+      name = name.substring(0, tagIdx).trim();
+    }
+    final idx = name.indexOf(' (');
+    return idx == -1 ? name : name.substring(0, idx).trim();
   }
 
   // =========================================================
@@ -243,6 +248,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
 
     setState(() {
       _cartItems.removeWhere((i) => i['item_name'] == itemName);
+      _expandedItems.remove(itemName);
     });
 
     _showSnack(
@@ -340,7 +346,10 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   void _clearCart() {
     if (_isOperationInProgress) return;
 
-    setState(() => _cartItems.clear());
+    setState(() {
+      _cartItems.clear();
+      _expandedItems.clear();
+    });
 
     _showSnack(
       icon: Icons.check_circle,
@@ -380,7 +389,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
     final List<String> existingDishes = _parseSelectedDishes(fullName);
     final String baseName = _stripDishSuffix(fullName);
 
-    // Synthesize a menuItem for the edit screen
     final Map<String, dynamic> menuItem = {
       'id': cartItem['id'],
       'name': baseName,
@@ -391,7 +399,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       'description': cartItem['description'] ?? '',
     };
 
-    // 1) Remove old entry from server so we don't get duplicates
     final removed = await _removeItemFromServerRaw(fullName);
     if (!removed) {
       if (mounted) {
@@ -404,16 +411,15 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       return;
     }
 
-    // 2) Optimistically remove from local list
     if (mounted) {
       setState(() {
         _cartItems.removeWhere((i) => i['item_name'] == fullName);
+        _expandedItems.remove(fullName);
       });
     }
 
     if (!mounted) return;
 
-    // 3) Open the meal plan screen prefilled
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -429,7 +435,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       ),
     );
 
-    // 4) Refresh cart & notify parent
     await _loadCartItems();
     widget.onCartChanged?.call();
   }
@@ -454,8 +459,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
 
       final String imgUrl =
       (orderItem['image_url'] ?? orderItem['image'] ?? '').toString();
-      final String imgBase64 =
-      (orderItem['image_base64'] ?? '').toString();
+      final String imgBase64 = (orderItem['image_base64'] ?? '').toString();
       if (imgUrl.isNotEmpty) request.fields['image_url'] = imgUrl;
       if (imgBase64.isNotEmpty) request.fields['image_base64'] = imgBase64;
 
@@ -463,6 +467,12 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       request.fields['meal_type'] = orderItem['meal_type']?.toString() ?? 'both';
       request.fields['bread_type'] =
           orderItem['bread_type']?.toString() ?? 'naan';
+      request.fields['bread_summary'] =
+          orderItem['bread_summary']?.toString() ?? '';
+      if (orderItem['bread_allocation'] != null) {
+        request.fields['bread_allocation'] =
+            json.encode(orderItem['bread_allocation']);
+      }
       request.fields['spice_level'] =
           orderItem['spice_level']?.toString() ?? 'mild';
       request.fields['selected_dishes'] = json.encode(dishes);
@@ -549,12 +559,10 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       backgroundColor: CartTheme.softBg,
       body: Column(
         children: [
-          // ✅ Header with top SafeArea (respects notch/status bar)
           SafeArea(
             bottom: false,
             child: _buildHeader(hasItems),
           ),
-          // ✅ Content + checkout bar with bottom SafeArea
           Expanded(
             child: SafeArea(
               top: false,
@@ -577,6 +585,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   Widget _roundIconButton({
     required IconData icon,
     required VoidCallback onTap,
@@ -593,8 +602,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   // ---------------------------------------------------------
-  // HEADER — Orange gradient (Tiffin Wales)
+  // HEADER
   // ---------------------------------------------------------
   Widget _buildHeader(bool hasItems) {
     return Container(
@@ -720,6 +730,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   // ---------------------------------------------------------
   // LOADING STATE
   // ---------------------------------------------------------
@@ -802,8 +813,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
               style: ElevatedButton.styleFrom(
                 backgroundColor: CartTheme.primary,
                 foregroundColor: Colors.white,
-                padding:
-                const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -868,8 +878,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
               style: ElevatedButton.styleFrom(
                 backgroundColor: CartTheme.primary,
                 foregroundColor: Colors.white,
-                padding:
-                const EdgeInsets.symmetric(horizontal: 36, vertical: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -901,7 +910,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       children: [
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16), // uniform padding
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             physics: const BouncingScrollPhysics(),
             itemCount: _cartItems.length,
             itemBuilder: (context, index) {
@@ -922,8 +931,108 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       ],
     );
   }
+
+  String _extractBreadTagFromName(String itemName) {
+    final tagIdx = itemName.lastIndexOf(' [');
+    if (tagIdx != -1 && itemName.endsWith(']')) {
+      return itemName.substring(tagIdx + 2, itemName.length - 1);
+    }
+    return '';
+  }
+
+  // =========================================================
+  // BREAD SUMMARY
+  // =========================================================
+  String _extractBreadSummary(Map<String, dynamic> item) {
+    final explicit = (item['bread_summary'] ?? '').toString().trim();
+    if (explicit.isNotEmpty) return explicit;
+
+    final allocRaw = item['bread_allocation'];
+    if (allocRaw != null) {
+      try {
+        final Map<String, dynamic> alloc = allocRaw is String
+            ? json.decode(allocRaw) as Map<String, dynamic>
+            : Map<String, dynamic>.from(allocRaw as Map);
+        final int roti = (alloc['roti_pieces'] ?? 0) as int;
+        final int naan = (alloc['naan_pieces'] ?? 0) as int;
+        if (roti > 0 && naan > 0) return '$roti Roti • $naan Naan';
+        if (roti > 0) return '$roti Roti';
+        if (naan > 0) return '$naan Naan';
+      } catch (_) {}
+    }
+
+    final fromName = _extractBreadTagFromName(
+      (item['item_name'] ?? '').toString(),
+    );
+    if (fromName.isNotEmpty) return fromName;
+
+    final legacy = (item['bread_type'] ?? '').toString().trim();
+    if (legacy.isNotEmpty) return legacy;
+
+    return '';
+  }
+
+  // =========================================================
+  // BREAD BADGE
+  // =========================================================
+  Widget _buildBreadBadge(String summary) {
+    if (summary.isEmpty) return const SizedBox.shrink();
+
+    final lower = summary.toLowerCase();
+    final bool hasRoti = lower.contains('roti');
+    final bool hasNaan = lower.contains('naan');
+
+    final Color badgeColor = hasRoti && hasNaan
+        ? const Color(0xFF8B5CF6)
+        : hasNaan
+        ? const Color(0xFFF59E0B)
+        : const Color(0xFF92400E);
+
+    final Color bgColor = hasRoti && hasNaan
+        ? const Color(0xFFEDE9FE)
+        : hasNaan
+        ? const Color(0xFFFEF3C7)
+        : const Color(0xFFF5E6D3);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: badgeColor.withOpacity(0.25), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasRoti && hasNaan
+                ? Icons.dynamic_feed_rounded
+                : Icons.bakery_dining_rounded,
+            size: 11,
+            color: badgeColor,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              summary,
+              style: GoogleFonts.poppins(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: badgeColor,
+                letterSpacing: 0.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ---------------------------------------------------------
-  // CART ITEM CARD
+  // CART ITEM CARD — EXPANDABLE FOR MEAL PLANS
   // ---------------------------------------------------------
   Widget _buildCartItemCard({
     required Key key,
@@ -933,11 +1042,10 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   }) {
     final String itemName = item['item_name']?.toString() ?? 'Unknown';
     final bool isMealPlan = _isMealPlanItem(itemName);
-    final String baseName =
-    isMealPlan ? _stripDishSuffix(itemName) : itemName;
-    final List<String> dishes =
-    isMealPlan ? _parseSelectedDishes(itemName) : [];
+    final String baseName = isMealPlan ? _stripDishSuffix(itemName) : itemName;
+    final List<String> dishes = isMealPlan ? _parseSelectedDishes(itemName) : [];
     final String description = (item['description'] ?? '').toString();
+    final bool isExpanded = isMealPlan && _expandedItems.contains(itemName);
 
     return Container(
       key: key,
@@ -947,11 +1055,19 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isMealPlan
-              ? CartTheme.primary.withOpacity(0.15)
+              ? CartTheme.primary.withOpacity(isExpanded ? 0.35 : 0.15)
               : Colors.grey.shade100,
-          width: 1,
+          width: isExpanded ? 1.5 : 1,
         ),
-        boxShadow: CartTheme.softShadow,
+        boxShadow: isExpanded
+            ? [
+          BoxShadow(
+            color: CartTheme.primary.withOpacity(0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ]
+            : CartTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -968,137 +1084,178 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Image
-                _buildItemImage(item, itemName),
-                const SizedBox(width: 14),
 
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top: name + badge
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              baseName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: CartTheme.body,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (isMealPlan) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: CartTheme.primaryGradient,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+          // ==========================================
+          // MAIN TAPPABLE HEADER
+          // ==========================================
+          InkWell(
+            onTap: isMealPlan
+                ? () {
+              setState(() {
+                if (_expandedItems.contains(itemName)) {
+                  _expandedItems.remove(itemName);
+                } else {
+                  _expandedItems.add(itemName);
+                }
+              });
+            }
+                : null,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(isMealPlan ? 0 : 20),
+              topRight: Radius.circular(isMealPlan ? 0 : 20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image
+                  _buildItemImage(item, itemName),
+                  const SizedBox(width: 14),
+
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Name row + expand chevron
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
                               child: Text(
-                                '${dishes.length}D PLAN',
+                                baseName,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 9,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  letterSpacing: 0.4,
+                                  color: CartTheme.body,
+                                  height: 1.2,
                                 ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ],
-                        ],
-                      ),
-
-                      // Description (only for non-meal-plan)
-                      if (!isMealPlan && description.isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          description,
-                          style: GoogleFonts.poppins(
-                            fontSize: 11.5,
-                            color: CartTheme.muted,
-                            height: 1.3,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-
-                      // Dish chips
-                      if (isMealPlan && dishes.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 5,
-                          runSpacing: 5,
-                          children: dishes
-                              .take(6)
-                              .map((d) => _buildDishChip(d))
-                              .toList()
-                            ..addAll(
-                              dishes.length > 6
-                                  ? [
-                                _buildDishChip(
-                                  '+${dishes.length - 6} more',
-                                  isMore: true,
+                            if (isMealPlan) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
                                 ),
-                              ]
-                                  : [],
-                            ),
+                                decoration: BoxDecoration(
+                                  gradient: CartTheme.primaryGradient,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${dishes.length}D PLAN',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              AnimatedRotation(
+                                turns: isExpanded ? 0.5 : 0.0,
+                                duration: const Duration(milliseconds: 250),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: CartTheme.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 18,
+                                    color: CartTheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
 
-                      const SizedBox(height: 10),
-
-                      // Price row + qty stepper
-                      Row(
-                        children: [
+                        // Description (non-meal-plan)
+                        if (!isMealPlan && description.isNotEmpty) ...[
+                          const SizedBox(height: 3),
                           Text(
-                            '\$${(price * quantity).toStringAsFixed(2)}',
+                            description,
                             style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: CartTheme.primary,
-                              letterSpacing: -0.3,
+                              fontSize: 11.5,
+                              color: CartTheme.muted,
+                              height: 1.3,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          if (quantity > 1) ...[
-                            const SizedBox(width: 6),
+                        ],
+
+                        // Bread badge (always visible for meal plans)
+                        if (isMealPlan) ...[
+                          Builder(
+                            builder: (context) {
+                              final breadSummary = _extractBreadSummary(item);
+                              return _buildBreadBadge(breadSummary);
+                            },
+                          ),
+                        ],
+
+                        const SizedBox(height: 10),
+
+                        // Price row + qty stepper
+                        Row(
+                          children: [
                             Text(
-                              '(\$${price.toStringAsFixed(2)} ea)',
+                              '\$${(price * quantity).toStringAsFixed(2)}',
                               style: GoogleFonts.poppins(
-                                fontSize: 10.5,
-                                color: CartTheme.muted,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: CartTheme.primary,
+                                letterSpacing: -0.3,
                               ),
                             ),
+                            if (quantity > 1) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '(\$${price.toStringAsFixed(2)} ea)',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10.5,
+                                  color: CartTheme.muted,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            _buildQtyStepper(item, quantity),
                           ],
-                          const Spacer(),
-                          _buildQtyStepper(item, quantity),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
-          // Actions bar
+          // ==========================================
+          // EXPANDED SECTION (meal plans only)
+          // ==========================================
+          if (isMealPlan)
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity),
+              secondChild: _buildExpandedMealPlanDetails(item, dishes),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 280),
+              sizeCurve: Curves.easeInOut,
+            ),
+
+          // ==========================================
+          // ACTION BAR
+          // ==========================================
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -1106,6 +1263,12 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
+              ),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.grey.shade100,
+                  width: 1,
+                ),
               ),
             ),
             child: Row(
@@ -1145,6 +1308,285 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
     );
   }
 
+  // =========================================================
+  // EXPANDED MEAL PLAN DETAILS
+  // =========================================================
+  Widget _buildExpandedMealPlanDetails(
+      Map<String, dynamic> item,
+      List<String> dishes,
+      ) {
+    final String mealType = (item['meal_type'] ?? 'both').toString();
+    final String spiceLevel = (item['spice_level'] ?? 'mild').toString();
+    final String specialInstructions =
+    (item['special_instructions'] ?? '').toString().trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Divider
+          Container(
+            height: 1,
+            color: Colors.grey.shade100,
+          ),
+          const SizedBox(height: 12),
+
+          // ============================
+          // DISHES
+          // ============================
+          if (dishes.isNotEmpty) ...[
+            _buildMiniSectionHeader(
+              icon: Icons.restaurant_menu_rounded,
+              label: 'YOUR DISHES',
+              count: dishes.length,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: dishes.map((d) => _buildDishChip(d)).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // ============================
+          // PREFERENCES (Meal type + spice)
+          // ============================
+          _buildMiniSectionHeader(
+            icon: Icons.tune_rounded,
+            label: 'PREFERENCES',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoPill(
+                  icon: _mealTypeIcon(mealType),
+                  label: 'Meal Type',
+                  value: _mealTypeLabel(mealType),
+                  color: _mealTypeColor(mealType),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildInfoPill(
+                  icon: Icons.local_fire_department_rounded,
+                  label: 'Spice',
+                  value: _spiceLabel(spiceLevel),
+                  color: _spiceColor(spiceLevel),
+                ),
+              ),
+            ],
+          ),
+
+          // ============================
+          // SPECIAL INSTRUCTIONS
+          // ============================
+          if (specialInstructions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _buildMiniSectionHeader(
+              icon: Icons.sticky_note_2_rounded,
+              label: 'SPECIAL INSTRUCTIONS',
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFFF97316).withOpacity(0.15),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                specialInstructions,
+                style: GoogleFonts.poppins(
+                  fontSize: 11.5,
+                  color: Colors.grey[700],
+                  height: 1.45,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // MINI SECTION HEADER
+  // ---------------------------------------------------------
+  Widget _buildMiniSectionHeader({
+    required IconData icon,
+    required String label,
+    int? count,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: CartTheme.muted),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w700,
+            color: CartTheme.muted,
+            letterSpacing: 1.2,
+          ),
+        ),
+        if (count != null) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: CartTheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '$count',
+              style: GoogleFonts.poppins(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: CartTheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------
+  // INFO PILL (meal type / spice)
+  // ---------------------------------------------------------
+  Widget _buildInfoPill({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withOpacity(0.15),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 11, color: color),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w600,
+                    color: CartTheme.muted,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: CartTheme.body,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // HELPERS FOR PILLS
+  // ---------------------------------------------------------
+  IconData _mealTypeIcon(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'veg':
+        return Icons.eco_rounded;
+      case 'nonveg':
+        return Icons.restaurant_rounded;
+      default:
+        return Icons.food_bank_rounded;
+    }
+  }
+
+  String _mealTypeLabel(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'veg':
+        return 'Veg';
+      case 'nonveg':
+        return 'Non-Veg';
+      default:
+        return 'Both';
+    }
+  }
+
+  Color _mealTypeColor(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'veg':
+        return const Color(0xFF22C55E);
+      case 'nonveg':
+        return const Color(0xFFEF4444);
+      default:
+        return CartTheme.primary;
+    }
+  }
+
+  String _spiceLabel(String spice) {
+    switch (spice.toLowerCase()) {
+      case 'mild':
+        return 'Mild';
+      case 'medium':
+        return 'Medium';
+      case 'hot':
+        return 'Hot';
+      default:
+        return spice;
+    }
+  }
+
+  Color _spiceColor(String spice) {
+    switch (spice.toLowerCase()) {
+      case 'mild':
+        return const Color(0xFF22C55E);
+      case 'medium':
+        return const Color(0xFFF59E0B);
+      case 'hot':
+        return const Color(0xFFEF4444);
+      default:
+        return CartTheme.muted;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // DISH CHIP
+  // ---------------------------------------------------------
   Widget _buildDishChip(String label, {bool isMore = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1169,6 +1611,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ---------------------------------------------------------
+  // QUANTITY STEPPER
+  // ---------------------------------------------------------
   Widget _buildQtyStepper(Map<String, dynamic> item, int quantity) {
     return Container(
       decoration: BoxDecoration(
@@ -1231,6 +1676,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ---------------------------------------------------------
+  // ACTION CHIP
+  // ---------------------------------------------------------
   Widget _buildActionChip({
     required IconData icon,
     required String label,
@@ -1378,11 +1826,14 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ---------------------------------------------------------
+  // CHECKOUT BAR
+  // ---------------------------------------------------------
   Widget _buildCheckoutBar() {
     final subtotal = _subtotal;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8), // reduced bottom
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(
@@ -1469,7 +1920,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            const SizedBox(height: 10), // extra breathing room above home bar
+            const SizedBox(height: 10),
           ],
         ),
       ),

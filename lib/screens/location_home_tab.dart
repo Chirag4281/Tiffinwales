@@ -6,8 +6,10 @@ import 'dart:typed_data' show Uint8List;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:http/http.dart' as http;
 import 'package:tiffinwales/subscription/subscription_list_screen.dart';
 import '../subscription/subscription_order_screen.dart';
+import 'cart_screen.dart';
 import 'home_screen.dart';
 import '../models/subscription_models.dart';
 import '../services/subscription_service.dart';
@@ -48,7 +50,15 @@ class _LocationHomeTabState extends State<LocationHomeTab>
   late PageController _pageController;
   int _currentPage = 0;
   late Timer _timer;
+// ==============================================
+// REORDER STATE
+// ==============================================
+  Map<String, dynamic>? _lastOrder;
+  bool _isLoadingLastOrder = true;
+  bool _isReordering = false;
 
+  final String ordersApiUrl =
+      'https://quantorra.co/tiffinwales/Orders.php';
   // Subscription plans from backend
   List<SubscriptionPlan> _subscriptionPlans = [];
   bool _isLoadingPlans = true;
@@ -76,6 +86,8 @@ class _LocationHomeTabState extends State<LocationHomeTab>
 
     _pageController = PageController(viewportFraction: 0.85);
     _loadSubscriptionPlans();
+    _loadLastOrder();          // ✅ ADD
+
     _startAutoScroll();
 
     if (!_imagesPreCached) {
@@ -93,7 +105,520 @@ class _LocationHomeTabState extends State<LocationHomeTab>
     _pageController.dispose();
     super.dispose();
   }
+// ==============================================
+// LOAD LAST ORDER FOR REORDER CARD
+// ==============================================
+  Future<void> _loadLastOrder() async {
+    setState(() {
+      _isLoadingLastOrder = true;
+    });
 
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(ordersApiUrl));
+      request.fields['action'] = 'get_last_order';
+      request.fields['email'] = widget.email;
+      request.fields['location_name'] = widget.locationName;
+
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 10),
+      );
+      final body = await streamed.stream.bytesToString();
+      final data = json.decode(body);
+
+      if (!mounted) return;
+
+      if (data['status'] == 'success' && data['data'] != null) {
+        setState(() {
+          _lastOrder = Map<String, dynamic>.from(data['data']);
+          _isLoadingLastOrder = false;
+        });
+      } else {
+        setState(() {
+          _lastOrder = null;
+          _isLoadingLastOrder = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ _loadLastOrder: $e');
+      if (mounted) {
+        setState(() {
+          _lastOrder = null;
+          _isLoadingLastOrder = false;
+        });
+      }
+    }
+  }
+
+// ==============================================
+// REORDER — ADD ALL ITEMS FROM LAST ORDER
+// ==============================================
+  Future<void> _reorderLastOrder() async {
+    if (_lastOrder == null || _isReordering) return;
+
+    setState(() => _isReordering = true);
+
+    try {
+      // ---------- Parse items ----------
+      List<Map<String, dynamic>> items = [];
+      final rawItems = _lastOrder!['items'];
+
+      if (rawItems is String && rawItems.isNotEmpty) {
+        try {
+          final decoded = json.decode(rawItems);
+          if (decoded is List) {
+            items = decoded
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+          }
+        } catch (e) {
+          debugPrint('❌ Failed to parse items JSON: $e');
+        }
+      } else if (rawItems is List) {
+        items = rawItems
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+
+      debugPrint('🔵 REORDER: parsed ${items.length} items');
+      for (final it in items) {
+        debugPrint('   → ${it['item_name'] ?? it['name']} x${it['quantity']}');
+      }
+
+      if (items.isEmpty) {
+        _showReorderSnack('Previous order has no items', Colors.red);
+        setState(() => _isReordering = false);
+        return;
+      }
+
+      // ---------- ONE HTTP CALL ----------
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('https://quantorra.co/tiffinwales/Cart.php'),
+      );
+      request.fields['action'] = 'reorder';
+      request.fields['email'] = widget.email;
+      request.fields['location_name'] = widget.locationName;
+      request.fields['items'] = json.encode(items);
+
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 15),
+      );
+      final body = await streamed.stream.bytesToString();
+      final data = json.decode(body);
+
+      debugPrint('📥 Reorder response: $body');
+
+      if (data['status'] != 'success') {
+        _showReorderSnack(
+          data['message']?.toString() ?? 'Failed to reorder',
+          Colors.red,
+        );
+        setState(() => _isReordering = false);
+        return;
+      }
+
+      if (!mounted) return;
+      _showReorderSnack(
+        'Added ${items.length} item${items.length == 1 ? '' : 's'} to cart!',
+        const Color(0xFF10B981),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CartScreen(
+            email: widget.email,
+            locationName: widget.locationName,
+            username: widget.username,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ _reorderLastOrder: $e');
+      _showReorderSnack('Failed to reorder', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isReordering = false);
+    }
+  }
+// ==============================================
+// REORDER CARD — Zomato Style
+// ==============================================
+  Widget _buildReorderCard(Color primaryColor) {
+    // Don't show anything if no last order or still loading
+    if (_isLoadingLastOrder || _lastOrder == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    // Parse items
+    List<Map<String, dynamic>> items = [];
+    final rawItems = _lastOrder!['items'];
+    if (rawItems is String && rawItems.isNotEmpty) {
+      try {
+        final decoded = json.decode(rawItems);
+        if (decoded is List) {
+          items = decoded.map((e) {
+            if (e is Map) return Map<String, dynamic>.from(e);
+            return <String, dynamic>{};
+          }).where((m) => m.isNotEmpty).toList();
+        }
+      } catch (_) {}
+    } else if (rawItems is List) {
+      items = rawItems.map((e) {
+        if (e is Map) return Map<String, dynamic>.from(e);
+        return <String, dynamic>{};
+      }).where((m) => m.isNotEmpty).toList();
+    }
+
+    if (items.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final String orderId = (_lastOrder!['order_id'] ?? '').toString();
+    final String total = (_lastOrder!['total'] ?? '0').toString();
+    final String createdAt = (_lastOrder!['created_at'] ?? '').toString();
+    final String formattedDate = _formatOrderDate(createdAt);
+
+    // Show max 4 item thumbnails
+    final int visibleThumbs = items.length > 4 ? 4 : items.length;
+    final int extraCount = items.length - visibleThumbs;
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _isReordering ? null : _reorderLastOrder,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF97316).withOpacity(0.28),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header row
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.22),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.history_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Order Again',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  height: 1.1,
+                                ),
+                              ),
+                              if (formattedDate.isNotEmpty)
+                                Text(
+                                  'From $formattedDate',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10.5,
+                                    color: Colors.white.withOpacity(0.75),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        // Item count badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${items.length} item${items.length == 1 ? '' : 's'}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Thumbnails row
+                    Row(
+                      children: [
+                        // Thumbnail stack
+                        SizedBox(
+                          height: 52,
+                          width: 52.0 * visibleThumbs + 8,
+                          child: Stack(
+                            children: List.generate(visibleThumbs, (i) {
+                              final item = items[i];
+                              return Positioned(
+                                left: i * 42.0,
+                                child: _buildReorderThumb(item),
+                              );
+                            }),
+                          ),
+                        ),
+
+                        // "+N more" text
+                        if (extraCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '+$extraCount more',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        const Spacer(),
+
+                        // Total + CTA
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '\$${double.tryParse(total)?.toStringAsFixed(2) ?? total}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                height: 1.1,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_isReordering)
+                                    const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFF97316),
+                                      ),
+                                    )
+                                  else
+                                    const Icon(
+                                      Icons.replay_rounded,
+                                      size: 12,
+                                      color: Color(0xFFF97316),
+                                    ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isReordering ? 'Adding…' : 'Reorder',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFFF97316),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // Order id (small)
+                    if (orderId.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Order ID: $orderId',
+                        style: GoogleFonts.poppins(
+                          fontSize: 9.5,
+                          color: Colors.white.withOpacity(0.6),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+// ==============================================
+// REORDER THUMBNAIL
+// ==============================================
+  Widget _buildReorderThumb(Map<String, dynamic> item) {
+    final String name = (item['name'] ?? item['item_name'] ?? '?').toString();
+    final String imageUrl = (item['image_url'] ?? item['image'] ?? '').toString();
+    final String imageBase64 =
+    (item['image_base64'] ?? '').toString();
+
+    Widget content;
+
+    if (imageUrl.isNotEmpty) {
+      content = Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          if (imageBase64.isNotEmpty) {
+            try {
+              return Image.memory(
+                base64Decode(imageBase64),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _thumbFallback(name),
+              );
+            } catch (_) {}
+          }
+          return _thumbFallback(name);
+        },
+      );
+    } else if (imageBase64.isNotEmpty) {
+      try {
+        content = Image.memory(
+          base64Decode(imageBase64),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _thumbFallback(name),
+        );
+      } catch (_) {
+        content = _thumbFallback(name);
+      }
+    } else {
+      content = _thumbFallback(name);
+    }
+
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipOval(child: content),
+    );
+  }
+
+  Widget _thumbFallback(String name) {
+    return Container(
+      color: const Color(0xFFFFF3E8),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFFF97316),
+          ),
+        ),
+      ),
+    );
+  }
+
+// ==============================================
+// FORMAT ORDER DATE ("Today", "Yesterday", "Mar 12")
+// ==============================================
+  String _formatOrderDate(String raw) {
+    if (raw.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(raw);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inDays == 0) {
+        return 'Today';
+      } else if (diff.inDays == 1) {
+        return 'Yesterday';
+      } else if (diff.inDays < 7) {
+        return '${diff.inDays} days ago';
+      } else {
+        const months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        return '${months[dt.month - 1]} ${dt.day}';
+      }
+    } catch (_) {
+      return '';
+    }
+  }
+  void _showReorderSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: GoogleFonts.poppins(fontSize: 13)),
+        backgroundColor: color,
+        duration: const Duration(milliseconds: 900),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
   // ==============================================
   // PRE-CACHE IMAGES - ONLY CALLED ONCE
   // ==============================================
@@ -263,6 +788,7 @@ class _LocationHomeTabState extends State<LocationHomeTab>
         slivers: [
           _buildHeader(darkColor, primaryColor),
           _buildSearchBar(primaryColor),
+          if (!_isSearching) _buildReorderCard(primaryColor),          // ✅ NEW
           if (!_isSearching) _buildSubscriptionPlansSection(primaryColor),
           _buildMenuHeader(darkColor),
           _buildMenuList(primaryColor, lightPurple),

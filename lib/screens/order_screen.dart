@@ -88,6 +88,9 @@ class _OrderScreenState extends State<OrderScreen> {
   bool _isDeliveryAvailable = true;
   String _deliveryUnavailableReason = '';
 
+// ✅ Delivery Option: 'delivery' or 'pickup'
+  String _deliveryOption = 'delivery';
+
   bool _addressChoiceShown = false;
   String _selectedAddressType = 'stored';
 
@@ -123,6 +126,7 @@ class _OrderScreenState extends State<OrderScreen> {
       _showAddressChoiceDialog();
     });
   }
+
   Future<void> _loadSavedCard() async {
     setState(() => _isLoadingSavedCard = true);
     try {
@@ -138,11 +142,13 @@ class _OrderScreenState extends State<OrderScreen> {
       if (mounted) setState(() => _isLoadingSavedCard = false);
     }
   }
+
   void _prefillName() {
     if (widget.username.isNotEmpty) {
       _nameController.text = widget.username;
     }
   }
+
 // ==============================================
 // SERVER SYNC — ADD TO CART (persist to DB)
 // ==============================================
@@ -214,7 +220,8 @@ class _OrderScreenState extends State<OrderScreen> {
 // ==============================================
 // SERVER SYNC — DECREMENT (update_cart with new qty)
 // ==============================================
-  Future<void> _syncDecrementToServer(Map<String, dynamic> item, int newQty) async {
+  Future<void> _syncDecrementToServer(Map<String, dynamic> item,
+      int newQty) async {
     try {
       final String itemName = item['item_name'] ?? item['name'] ?? '';
       var request = http.MultipartRequest('POST', Uri.parse(cartApiUrl));
@@ -233,6 +240,7 @@ class _OrderScreenState extends State<OrderScreen> {
       print('❌ Server sync decrement failed: $e');
     }
   }
+
   // ==============================================
   // ADD ITEM TO LOCAL CART (Real-time sync)
   // ==============================================
@@ -294,6 +302,7 @@ class _OrderScreenState extends State<OrderScreen> {
     // Notify parent
     widget.onAddToCart?.call(item);
   }
+
   // ==============================================
   // DECREMENT CART ITEM
   // ==============================================
@@ -338,6 +347,7 @@ class _OrderScreenState extends State<OrderScreen> {
       _syncDecrementToServer(_localCartItems[idx], newQty);
     }
   }
+
   // ==============================================
 // REFRESH LOCAL CART FROM SERVER (optional safety net)
 // ==============================================
@@ -364,6 +374,7 @@ class _OrderScreenState extends State<OrderScreen> {
       print('❌ Failed to refresh cart: $e');
     }
   }
+
   void _recalculateTotal() {
     _localTotal = _localCartItems.fold<double>(0.0, (sum, cartItem) {
       final p = double.tryParse(
@@ -793,7 +804,8 @@ class _OrderScreenState extends State<OrderScreen> {
                     ),
                     const Spacer(),
                     // Type badge: 🍞 bread or 🍮 sweet
-                    _buildSuggestionTypeBadge(item['_suggestionType']?.toString()),
+                    _buildSuggestionTypeBadge(
+                        item['_suggestionType']?.toString()),
                   ],
                 ),
               ],
@@ -898,6 +910,7 @@ class _OrderScreenState extends State<OrderScreen> {
       ),
     );
   }
+
 // ==============================================
 // SUGGESTION TYPE BADGE (Bread / Sweet)
 // ==============================================
@@ -934,15 +947,14 @@ class _OrderScreenState extends State<OrderScreen> {
       child: Icon(icon, size: 11, color: color),
     );
   }
+
   // ==============================================
   // SUGGESTION IMAGE BUILDER
   // ==============================================
-  Widget _buildSuggestionImage(
-      String imageUrl,
+  Widget _buildSuggestionImage(String imageUrl,
       String imageBase64,
       String name,
-      Color primaryColor,
-      ) {
+      Color primaryColor,) {
     if (imageUrl.isNotEmpty) {
       return Image.network(
         imageUrl,
@@ -1012,8 +1024,8 @@ class _OrderScreenState extends State<OrderScreen> {
   // ==============================================
   // GET ADDRESS FROM LAT LNG
   // ==============================================
-  Future<Map<String, String>?> _getAddressFromLatLng(
-      double lat, double lng) async {
+  Future<Map<String, String>?> _getAddressFromLatLng(double lat,
+      double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
@@ -1062,85 +1074,155 @@ class _OrderScreenState extends State<OrderScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1C1C1E),
-                Color(0xFF2A2A2E),
-                Color(0xFF3A3A3F),
-              ],
+      builder: (context) =>
+          Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
             ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 40,
-                spreadRadius: 5,
-                offset: const Offset(0, 20),
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF1C1C1E),
+                    Color(0xFF2A2A2E),
+                    Color(0xFF3A3A3F),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 40,
+                    spreadRadius: 5,
+                    offset: const Offset(0, 20),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFFF97316).withOpacity(0.2),
+                    blurRadius: 80,
+                    offset: const Offset(0, 30),
+                  ),
+                ],
               ),
-              BoxShadow(
-                color: const Color(0xFFF97316).withOpacity(0.2),
-                blurRadius: 80,
-                offset: const Offset(0, 30),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF97316).withOpacity(0.45),
+                              blurRadius: 25,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Choose Delivery Address',
+                              style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            Text(
+                              'Select where you want your order delivered',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _buildAddressOption(
+                    icon: Icons.saved_search_rounded,
+                    title: 'Stored Address',
+                    subtitle: _hasSavedAddress &&
+                        _addressController.text.isNotEmpty
+                        ? _addressController.text.substring(0, 30) + '...'
+                        : 'Use your saved delivery address',
+                    isSelected: _selectedAddressType == 'stored',
+                    color: const Color(0xFFF97316),
+                    onTap: () {
+                      setState(() {
+                        _selectedAddressType = 'stored';
+                        _isLiveLocation = false;
+                      });
+                      Navigator.pop(context);
+                      _handleAddressSelection('stored');
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _buildAddressOption(
+                    icon: Icons.gps_fixed_rounded,
+                    title: 'Live Location',
+                    subtitle: 'Use your current GPS location',
+                    isSelected: _selectedAddressType == 'live',
+                    color: const Color(0xFF34D399),
+                    onTap: () {
+                      setState(() {
+                        _selectedAddressType = 'live';
+                        _isLiveLocation = true;
+                        _isFetchingLocation = true;
+                      });
+                      Navigator.pop(context);
+                      _handleAddressSelection('live');
+                    },
+                  ),
+                  const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.08),
+                        width: 1,
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFF97316).withOpacity(0.45),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
-                    child: const Icon(
-                      Icons.location_on_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          'Choose Delivery Address',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.white.withOpacity(0.4),
+                          size: 18,
                         ),
-                        Text(
-                          'Select where you want your order delivered',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.white.withOpacity(0.6),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Delivery charges and availability may vary based on your location',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.4),
+                            ),
                           ),
                         ),
                       ],
@@ -1148,76 +1230,8 @@ class _OrderScreenState extends State<OrderScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              _buildAddressOption(
-                icon: Icons.saved_search_rounded,
-                title: 'Stored Address',
-                subtitle: _hasSavedAddress && _addressController.text.isNotEmpty
-                    ? _addressController.text.substring(0, 30) + '...'
-                    : 'Use your saved delivery address',
-                isSelected: _selectedAddressType == 'stored',
-                color: const Color(0xFFF97316),
-                onTap: () {
-                  setState(() {
-                    _selectedAddressType = 'stored';
-                    _isLiveLocation = false;
-                  });
-                  Navigator.pop(context);
-                  _handleAddressSelection('stored');
-                },
-              ),
-              const SizedBox(height: 14),
-              _buildAddressOption(
-                icon: Icons.gps_fixed_rounded,
-                title: 'Live Location',
-                subtitle: 'Use your current GPS location',
-                isSelected: _selectedAddressType == 'live',
-                color: const Color(0xFF34D399),
-                onTap: () {
-                  setState(() {
-                    _selectedAddressType = 'live';
-                    _isLiveLocation = true;
-                    _isFetchingLocation = true;
-                  });
-                  Navigator.pop(context);
-                  _handleAddressSelection('live');
-                },
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.08),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.white.withOpacity(0.4),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Delivery charges and availability may vary based on your location',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: Colors.white.withOpacity(0.4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -1433,7 +1447,8 @@ class _OrderScreenState extends State<OrderScreen> {
           _deliveryLatitude != null &&
           _deliveryLatitude!.isNotEmpty) {
         await _calculateDeliveryFee(
-            double.parse(_deliveryLatitude!), double.parse(_deliveryLongitude!));
+            double.parse(_deliveryLatitude!),
+            double.parse(_deliveryLongitude!));
       } else {
         await _calculateDeliveryFee(19.0760, 72.8777);
       }
@@ -1454,87 +1469,88 @@ class _OrderScreenState extends State<OrderScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 30,
-                spreadRadius: 5,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 80,
-                height: 80,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const CircularProgressIndicator(
-                      strokeWidth: 4,
-                      color: Color(0xFFF97316),
-                    ),
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
-                        ),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Icon(
-                        Icons.gps_fixed,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Fetching Live Location',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1C1C1E),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please wait while we get your current location...',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildDot(0),
-                  _buildDot(1),
-                  _buildDot(2),
+      builder: (context) =>
+          Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                    offset: const Offset(0, 15),
+                  ),
                 ],
               ),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const CircularProgressIndicator(
+                          strokeWidth: 4,
+                          color: Color(0xFFF97316),
+                        ),
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                            ),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: const Icon(
+                            Icons.gps_fixed,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Fetching Live Location',
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1C1C1E),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Please wait while we get your current location...',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildDot(0),
+                      _buildDot(1),
+                      _buildDot(2),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -1596,7 +1612,8 @@ class _OrderScreenState extends State<OrderScreen> {
           _isDeliveryAvailable = isAvailable;
           _deliveryUnavailableReason = isAvailable
               ? ''
-              : 'We currently deliver only within 15 miles. Your location is ${distance.toStringAsFixed(1)} miles away.';
+              : 'We currently deliver only within 15 miles. Your location is ${distance
+              .toStringAsFixed(1)} miles away.';
         });
       } else {
         print('Error from server: ${responseData['message']}');
@@ -1678,23 +1695,21 @@ class _OrderScreenState extends State<OrderScreen> {
 
     setState(() {
       _deliverySlots = [
-        'ASAP (15-25 min)',
-        '10:00 AM - 10:30 AM',
-        '10:30 AM - 11:00 AM',
-        '11:00 AM - 11:30 AM',
-        '11:30 AM - 12:00 PM',
-        '12:00 PM - 12:30 PM',
-        '12:30 PM - 1:00 PM',
-        '1:00 PM - 1:30 PM',
-        '1:30 PM - 2:00 PM',
-        '2:00 PM - 2:30 PM',
-        '5:00 PM - 5:30 PM',
-        '5:30 PM - 6:00 PM',
-        '6:00 PM - 6:30 PM',
-        '6:30 PM - 7:00 PM',
-        '7:00 PM - 7:30 PM',
-        '7:30 PM - 8:00 PM',
-        '8:00 PM - 8:30 PM',
+        '12:00PM to 1:00PM',
+        '1:00PM to 2:00PM',
+        '11:30AM to 12PM',
+        '12:00PM to 12:30PM',
+        '12:30PM to 1:00PM',
+        '1:00PM to 1:30PM',
+        '1:30PM to 2:00PM',
+        '2:00PM to 2:30PM',
+        '2:30PM to 3:00PM',
+        '6:00PM to 6:30PM',
+        '6:30PM to 7:00PM',
+        '7:00PM to 7:30PM',
+        '7:30PM to 8:00PM',
+        '8:00PM to 8:30PM',
+        '8:30PM to 9:00PM',
       ];
       _selectedDeliverySlot = _deliverySlots[0];
       _isLoadingSlots = false;
@@ -1705,7 +1720,205 @@ class _OrderScreenState extends State<OrderScreen> {
   // CALCULATIONS
   // ==============================================
   double get subtotal => _localTotal;
-  double get grandTotal => subtotal + _deliveryFee;
+
+// ✅ Pickup = no delivery fee; Delivery = subtotal + fee
+  double get effectiveDeliveryFee =>
+      _deliveryOption == 'pickup' ? 0.0 : _deliveryFee;
+
+  double get grandTotal => subtotal + effectiveDeliveryFee;
+
+// ==============================================
+// SHOW DELIVERY FEE INFO DIALOG
+// ==============================================
+  void _showDeliveryFeeInfo() {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.delivery_dining,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Delivery Fee Details',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1C1C1E),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF97316).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Your Distance',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        '${_distance.toStringAsFixed(1)} $_distanceUnit',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFF97316),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildRateRow('0 - 3 miles', '\$8.00',
+                          _distance <= 3 && _distance > 0),
+                      const Divider(height: 8),
+                      _buildRateRow('3 - 5 miles', '\$10.00',
+                          _distance > 3 && _distance <= 5),
+                      const Divider(height: 8),
+                      _buildRateRow('5 - 10 miles', '\$12.00',
+                          _distance > 5 && _distance <= 10),
+                      const Divider(height: 8),
+                      _buildRateRow('10 - 15 miles', '\$14.00',
+                          _distance > 10 && _distance <= 15),
+                      const Divider(height: 8),
+                      _buildRateRow(
+                          '15+ miles', 'Not Available', _distance > 15),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _isDeliveryAvailable
+                        ? Colors.green.withOpacity(0.08)
+                        : Colors.red.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isDeliveryAvailable
+                          ? Colors.green.withOpacity(0.2)
+                          : Colors.red.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isDeliveryAvailable
+                            ? Icons.check_circle
+                            : Icons.warning_amber_rounded,
+                        color: _isDeliveryAvailable
+                            ? Colors.green[700]
+                            : Colors.red[700],
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _isDeliveryAvailable
+                              ? '✅ Delivery available to your location!'
+                              : '❌ Delivery not available to your location',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: _isDeliveryAvailable
+                                ? Colors.green[700]
+                                : Colors.red[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Got it',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFF97316),
+                  ),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildRateRow(String range, String fee, bool isActive) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            isActive ? Icons.check_circle : Icons.circle,
+            size: 14,
+            color: isActive ? const Color(0xFFF97316) : Colors.grey[300],
+          ),
+          const SizedBox(width: 8),
+          Text(
+            range,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: isActive ? const Color(0xFF1C1C1E) : Colors.grey[500],
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            fee,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: isActive ? const Color(0xFFF97316) : Colors.grey[500],
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _sendOrderNotifications({
     required String orderId,
@@ -1755,8 +1968,26 @@ class _OrderScreenState extends State<OrderScreen> {
   // ==============================================
   Future<void> _placeOrder() async {
     if (_isPlacingOrder) return;
+
+// ✅ Require phone number validation (from _formKey)
     if (!_formKey.currentState!.validate()) return;
-    if (!_isDeliveryAvailable) return;
+
+// ✅ Explicit phone check (belt-and-suspenders)
+    if (_phoneController.text
+        .trim()
+        .isEmpty) {
+      _snack('Phone number is required to place an order', Colors.red);
+      return;
+    }
+    if (_phoneController.text
+        .trim()
+        .length < 10) {
+      _snack('Please enter a valid 10-digit phone number', Colors.red);
+      return;
+    }
+
+// ✅ Only block if Delivery is selected AND unavailable
+    if (_deliveryOption == 'delivery' && !_isDeliveryAvailable) return;
 
     // ---------------------------------------------------------
     // Resolve card data — either from secure storage or manual entry
@@ -1769,7 +2000,8 @@ class _OrderScreenState extends State<OrderScreen> {
       // Pull full card from secure storage only when placing order
       final savedCard = await SecureCardService.loadCard();
       if (savedCard == null) {
-        _snack('Saved card is no longer available. Please re-enter.', Colors.red);
+        _snack(
+            'Saved card is no longer available. Please re-enter.', Colors.red);
         setState(() {
           _useSavedCard = false;
           _savedCardDisplay = null;
@@ -1802,7 +2034,9 @@ class _OrderScreenState extends State<OrderScreen> {
     });
 
     try {
-      final orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
+      final orderId = 'ORD-${DateTime
+          .now()
+          .millisecondsSinceEpoch}';
 
       final response = await http.post(
         Uri.parse('https://quantorra.co/tiffinwales/create_halo_payment.php'),
@@ -1817,7 +2051,9 @@ class _OrderScreenState extends State<OrderScreen> {
             'cvc': cvc,
           },
           'billing': {
-            'first_name': _nameController.text.split(' ').first,
+            'first_name': _nameController.text
+                .split(' ')
+                .first,
             'last_name': _nameController.text.split(' ').skip(1).join(' '),
             'email': widget.email,
             'phone': _phoneController.text,
@@ -1876,7 +2112,9 @@ class _OrderScreenState extends State<OrderScreen> {
     });
 
     try {
-      final orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
+      final orderId = 'ORD-${DateTime
+          .now()
+          .millisecondsSinceEpoch}';
 
       final response = await http.post(
         Uri.parse(haloPaymentApiUrl),
@@ -1922,89 +2160,95 @@ class _OrderScreenState extends State<OrderScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.85,
-          width: double.infinity,
-          child: Column(
-            children: [
-              AppBar(
-                backgroundColor: Colors.white,
-                elevation: 0,
-                title: const Text('Secure Halo Payment',
-                    style: TextStyle(color: Colors.black)),
-                automaticallyImplyLeading: false,
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showRetryDialog(orderId);
-                    },
-                  )
+      builder: (context) =>
+          Dialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            child: SizedBox(
+              height: MediaQuery
+                  .of(context)
+                  .size
+                  .height * 0.85,
+              width: double.infinity,
+              child: Column(
+                children: [
+                  AppBar(
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    title: const Text('Secure Halo Payment',
+                        style: TextStyle(color: Colors.black)),
+                    automaticallyImplyLeading: false,
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.black),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showRetryDialog(orderId);
+                        },
+                      )
+                    ],
+                  ),
+                  Expanded(
+                    child: WebViewWidget(
+                      controller: WebViewController()
+                        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                        ..setNavigationDelegate(
+                          NavigationDelegate(
+                            onPageStarted: (url) =>
+                                setState(() => _isWebViewLoading = true),
+                            onPageFinished: (url) {
+                              setState(() => _isWebViewLoading = false);
+
+                              if (url.contains('payment_return.php') ||
+                                  url.contains('status=success')) {
+                                Navigator.pop(context);
+                                _finalizeOrder(orderId, 'paid', null);
+                              } else if (url.contains('status=failed') ||
+                                  url.contains('cancel')) {
+                                Navigator.pop(context);
+                                _showRetryDialog(orderId);
+                              }
+                            },
+                          ),
+                        )
+                        ..loadRequest(Uri.parse(_paymentUrl!)),
+                    ),
+                  ),
+                  if (_isWebViewLoading) const LinearProgressIndicator(),
                 ],
               ),
-              Expanded(
-                child: WebViewWidget(
-                  controller: WebViewController()
-                    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                    ..setNavigationDelegate(
-                      NavigationDelegate(
-                        onPageStarted: (url) =>
-                            setState(() => _isWebViewLoading = true),
-                        onPageFinished: (url) {
-                          setState(() => _isWebViewLoading = false);
-
-                          if (url.contains('payment_return.php') ||
-                              url.contains('status=success')) {
-                            Navigator.pop(context);
-                            _finalizeOrder(orderId, 'paid', null);
-                          } else if (url.contains('status=failed') ||
-                              url.contains('cancel')) {
-                            Navigator.pop(context);
-                            _showRetryDialog(orderId);
-                          }
-                        },
-                      ),
-                    )
-                    ..loadRequest(Uri.parse(_paymentUrl!)),
-                ),
-              ),
-              if (_isWebViewLoading) const LinearProgressIndicator(),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
   void _showRetryDialog(String orderId) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Payment Incomplete'),
-        content: const Text(
-            'Your order was not completed. Would you like to try paying again?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Payment Incomplete'),
+            content: const Text(
+                'Your order was not completed. Would you like to try paying again?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _initiateHaloPayment();
+                },
+                child: const Text('Retry Payment'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _initiateHaloPayment();
-            },
-            child: const Text('Retry Payment'),
-          ),
-        ],
-      ),
     );
   }
 
-  Future<void> _finalizeOrder(
-      String orderId, String paymentStatus, String? transactionId) async {
+  Future<void> _finalizeOrder(String orderId, String paymentStatus,
+      String? transactionId) async {
     setState(() {
       _isPlacingOrder = true;
       _isLoading = true;
@@ -2022,17 +2266,22 @@ class _OrderScreenState extends State<OrderScreen> {
         'city': _cityController.text.trim(),
         'postal_code': _postalCodeController.text.trim(),
         'delivery_slot': _selectedDeliverySlot ?? '',
+        'delivery_option': _deliveryOption,
+        // ✅ NEW
         'payment_method': 'Halo Payments',
         'payment_status': paymentStatus,
         'special_instructions': _specialInstructionsController.text.trim(),
         'subtotal': subtotal.toStringAsFixed(2),
-        'delivery_fee': _deliveryFee.toStringAsFixed(2),
+        'delivery_fee': effectiveDeliveryFee.toStringAsFixed(2),
+        // ✅ 0 for pickup
         'service_charge': '0.00',
         'tax': '0.00',
         'total': grandTotal.toStringAsFixed(2),
-        'distance': _distance.toStringAsFixed(2),
+        'distance': _deliveryOption == 'pickup'
+            ? '0.00'
+            : _distance.toStringAsFixed(2),
         'currency': 'USD',
-        'items': jsonEncode(_localCartItems), // ✅ Use local cart
+        'items': jsonEncode(_localCartItems),
         'order_status': 'confirmed',
         'payment_id': transactionId ?? '',
       };
@@ -2094,176 +2343,177 @@ class _OrderScreenState extends State<OrderScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.green.withOpacity(0.1),
-              ),
-              child: const Icon(
-                Icons.check_circle_outline,
-                color: Colors.green,
-                size: 60,
-              ),
+      builder: (context) =>
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Order Placed! 🎉',
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1C1C1E),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Your order has been placed successfully!',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF97316).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Order ID:',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1C1C1E),
-                        ),
-                      ),
-                      Text(
-                        orderId,
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFF97316),
-                        ),
-                      ),
-                    ],
+            title: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.green.withOpacity(0.1),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total:',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1C1C1E),
-                        ),
-                      ),
-                      Text(
-                        '\$${total.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFF97316),
-                        ),
-                      ),
-                    ],
+                  child: const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.green,
+                    size: 60,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Estimated Delivery: ${_selectedDeliverySlot ?? "30-45 min"}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.green.withOpacity(0.2),
-                  width: 1,
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.notifications_active,
-                    color: Colors.green[700],
-                    size: 18,
+                const SizedBox(height: 16),
+                Text(
+                  'Order Placed! 🎉',
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1C1C1E),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '✅ Managers have been notified about your order',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.green[700],
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Your order has been placed successfully!',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF97316).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Order ID:',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1C1C1E),
+                            ),
+                          ),
+                          Text(
+                            orderId,
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFF97316),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total:',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1C1C1E),
+                            ),
+                          ),
+                          Text(
+                            '\$${total.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFF97316),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${_deliveryOption == 'pickup' ? 'Pickup' : 'Estimated Delivery'}: ${_selectedDeliverySlot ?? "30-45 min"}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.2),
+                      width: 1,
                     ),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_active,
+                        color: Colors.green[700],
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '✅ Managers have been notified about your order',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Payment: $paymentMethod',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blue[700],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Payment: $paymentMethod',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.blue[700],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.popUntil(context, (route) => route.isFirst);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF97316),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.popUntil(context, (route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF97316),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Continue to Home',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
-              child: Text(
-                'Continue to Home',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -2279,6 +2529,171 @@ class _OrderScreenState extends State<OrderScreen> {
     _expiryController.dispose();
     _cvcController.dispose();
     super.dispose();
+  }
+
+// ==============================================
+// DELIVERY / PICKUP SELECTOR
+// ==============================================
+  Widget _buildDeliveryOptionSelector() {
+    const Color primaryColor = Color(0xFFF97316);
+    const Color darkColor = Color(0xFF1C1C1E);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.delivery_dining, color: primaryColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Order Type',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: darkColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDeliveryOptionButton(
+                  icon: Icons.delivery_dining,
+                  label: 'Delivery',
+                  value: 'delivery',
+                  primaryColor: primaryColor,
+                  subtitle: _deliveryOption == 'delivery' &&
+                      _isDeliveryAvailable
+                      ? '\$${_deliveryFee.toStringAsFixed(2)} fee'
+                      : _deliveryOption == 'delivery' && !_isDeliveryAvailable
+                      ? 'Not available'
+                      : 'Home delivery',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDeliveryOptionButton(
+                  icon: Icons.storefront,
+                  label: 'Pickup',
+                  value: 'pickup',
+                  primaryColor: primaryColor,
+                  subtitle: 'Free • Ready in 20 min',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryOptionButton({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color primaryColor,
+    required String subtitle,
+  }) {
+    final isSelected = _deliveryOption == value;
+    final isDeliveryUnavailable = value == 'delivery' &&
+        !_isDeliveryAvailable && !_isCalculatingDeliveryFee;
+
+    return GestureDetector(
+      onTap: isDeliveryUnavailable
+          ? null
+          : () => setState(() => _deliveryOption = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+            colors: [primaryColor, primaryColor.withOpacity(0.85)],
+          )
+              : null,
+          color: isSelected
+              ? null
+              : (isDeliveryUnavailable ? Colors.grey[100] : Colors.grey[50]),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected
+                ? primaryColor
+                : (isDeliveryUnavailable ? Colors.grey[200]! : Colors
+                .grey[200]!),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ]
+              : null,
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDeliveryUnavailable
+                      ? Colors.grey[400]
+                      : primaryColor),
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    color: isSelected
+                        ? Colors.white
+                        : (isDeliveryUnavailable
+                        ? Colors.grey[400]
+                        : const Color(0xFF1C1C1E)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: GoogleFonts.poppins(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+                color: isSelected
+                    ? Colors.white.withOpacity(0.85)
+                    : (isDeliveryUnavailable
+                    ? Colors.red[400]
+                    : Colors.grey[600]),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -2337,6 +2752,8 @@ class _OrderScreenState extends State<OrderScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildDeliveryOptionSelector(), // ✅ NEW
+                    const SizedBox(height: 16),
                     _buildOrderSummary(),
                     const SizedBox(height: 16),
                     _buildInlineSuggestions(),
@@ -2570,19 +2987,45 @@ class _OrderScreenState extends State<OrderScreen> {
           }).toList(),
           const Divider(height: 20),
           _buildPriceRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+
+// ✅ Delivery Fee row — with info icon + pickup handling
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Delivery Fee',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.grey[600],
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Delivery Fee',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  if (_deliveryOption == 'delivery') ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: _showDeliveryFeeInfo,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF97316).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: Color(0xFFF97316),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               Text(
-                _isCalculatingDeliveryFee
+                _deliveryOption == 'pickup'
+                    ? 'Free (Pickup)'
+                    : _isCalculatingDeliveryFee
                     ? 'Calculating...'
                     : _isDeliveryAvailable
                     ? '\$${_deliveryFee.toStringAsFixed(2)}'
@@ -2590,7 +3033,9 @@ class _OrderScreenState extends State<OrderScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: _isCalculatingDeliveryFee
+                  color: _deliveryOption == 'pickup'
+                      ? Colors.green[700]
+                      : _isCalculatingDeliveryFee
                       ? Colors.grey[400]
                       : _isDeliveryAvailable
                       ? Colors.grey[800]
@@ -2602,12 +3047,14 @@ class _OrderScreenState extends State<OrderScreen> {
           const Divider(height: 16, thickness: 2),
           _buildPriceRow(
             'Grand Total',
-            _isDeliveryAvailable
+            (_deliveryOption == 'pickup' || _isDeliveryAvailable)
                 ? '\$${grandTotal.toStringAsFixed(2)}'
                 : 'Not Available',
             isTotal: true,
           ),
-          if (_distance > 0 && _isDeliveryAvailable) ...[
+          if (_deliveryOption == 'delivery' &&
+              _distance > 0 &&
+              _isDeliveryAvailable) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(8),
@@ -2620,7 +3067,8 @@ class _OrderScreenState extends State<OrderScreen> {
                   Icon(Icons.location_on, size: 14, color: Colors.blue[400]),
                   const SizedBox(width: 4),
                   Text(
-                    'Distance: ${_distance.toStringAsFixed(1)} $_distanceUnit from restaurant',
+                    'Distance: ${_distance.toStringAsFixed(
+                        1)} $_distanceUnit from restaurant',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.grey[500],
@@ -2735,23 +3183,24 @@ class _OrderScreenState extends State<OrderScreen> {
                       ],
                     ),
                   )
-                else if (_hasSavedAddress)
-                  Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Saved',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: primaryColor,
+                else
+                  if (_hasSavedAddress)
+                    Container(
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Saved',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
                       ),
                     ),
-                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -2949,7 +3398,7 @@ class _OrderScreenState extends State<OrderScreen> {
               Icon(Icons.access_time, color: primaryColor, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Delivery Time',
+                _deliveryOption == 'pickup' ? 'Pickup Time' : 'Delivery Time',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -2990,7 +3439,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     child: Text(slot),
                   );
                 }).toList(),
-                onChanged: _isDeliveryAvailable
+                onChanged: (_deliveryOption == 'pickup' || _isDeliveryAvailable)
                     ? (value) {
                   setState(() {
                     _selectedDeliverySlot = value;
@@ -3056,10 +3505,11 @@ class _OrderScreenState extends State<OrderScreen> {
                 ),
               ),
             )
-          else if (_savedCardDisplay != null) ...[
-            _buildSavedCardTile(_savedCardDisplay!),
-            const SizedBox(height: 12),
-          ],
+          else
+            if (_savedCardDisplay != null) ...[
+              _buildSavedCardTile(_savedCardDisplay!),
+              const SizedBox(height: 12),
+            ],
 
           // ---------- MANUAL CARD FORM ----------
           // Only show the manual form if:
@@ -3161,42 +3611,38 @@ class _OrderScreenState extends State<OrderScreen> {
                             color: darkColor,
                           ),
                         ),
-                        Text(
-                          'Stored in device Keychain / Keystore. CVV is never saved.',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.5,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-          ] else ...[
-            // "Use a different card" button when a saved card is selected
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _useSavedCard = false;
-                  _cardNumberController.clear();
-                  _expiryController.clear();
-                  _cvcController.clear();
-                });
-              },
-              icon: const Icon(Icons.edit_outlined, size: 16),
-              label: Text(
-                'Use a different card',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ] else
+            ...[
+              // "Use a different card" button when a saved card is selected
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _useSavedCard = false;
+                    _cardNumberController.clear();
+                    _expiryController.clear();
+                    _cvcController.clear();
+                  });
+                },
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: Text(
+                  'Use a different card',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(foregroundColor: primaryColor),
               ),
-              style: TextButton.styleFrom(foregroundColor: primaryColor),
-            ),
-          ],
+            ],
         ],
       ),
     );
   }
+
   Widget _buildSavedCardTile(SavedCardDisplay card) {
     const Color primaryColor = Color(0xFFF97316);
     const Color darkColor = Color(0xFF1C1C1E);
@@ -3329,60 +3775,61 @@ class _OrderScreenState extends State<OrderScreen> {
   void _showForgetCardDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          'Forget saved card?',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-        ),
-        content: Text(
-          'You will need to enter your card details again next time.',
-          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[700]),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(color: Colors.grey[600]),
+      builder: (ctx) =>
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+            title: Text(
+              'Forget saved card?',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
             ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await SecureCardService.clearCard();
-              if (!mounted) return;
-              setState(() {
-                _savedCardDisplay = null;
-                _useSavedCard = false;
-                _cardNumberController.clear();
-                _expiryController.clear();
-                _cvcController.clear();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Saved card removed'),
-                  backgroundColor: Colors.green,
-                  behavior: SnackBarBehavior.floating,
+            content: Text(
+              'You will need to enter your card details again next time.',
+              style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[700]),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(color: Colors.grey[600]),
                 ),
-              );
-            },
-            child: Text(
-              'Forget',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await SecureCardService.clearCard();
+                  if (!mounted) return;
+                  setState(() {
+                    _savedCardDisplay = null;
+                    _useSavedCard = false;
+                    _cardNumberController.clear();
+                    _expiryController.clear();
+                    _cvcController.clear();
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Saved card removed'),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                child: Text(
+                  'Forget',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -3436,7 +3883,8 @@ class _OrderScreenState extends State<OrderScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFFF97316), width: 2),
+                borderSide: const BorderSide(
+                    color: Color(0xFFF97316), width: 2),
               ),
               filled: true,
               fillColor: Colors.grey[50],
@@ -3449,6 +3897,12 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Widget _buildBottomButton() {
     const Color primaryColor = Color(0xFFF97316);
+
+    // ✅ Can place order when:
+    //   - Pickup selected, OR
+    //   - Delivery selected AND delivery is available
+    final bool canPlace = !_isPlacingOrder &&
+        (_deliveryOption == 'pickup' || _isDeliveryAvailable);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -3468,19 +3922,16 @@ class _OrderScreenState extends State<OrderScreen> {
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: (_isDeliveryAvailable && !_isPlacingOrder)
-                  ? _placeOrder
-                  : null,
+              onPressed: canPlace ? _placeOrder : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                _isDeliveryAvailable ? primaryColor : Colors.grey[400],
+                backgroundColor: canPlace ? primaryColor : Colors.grey[400],
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                elevation: _isDeliveryAvailable ? 4 : 0,
-                shadowColor: _isDeliveryAvailable
+                elevation: canPlace ? 4 : 0,
+                shadowColor: canPlace
                     ? primaryColor.withOpacity(0.3)
                     : Colors.transparent,
               ),
@@ -3490,7 +3941,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   Icon(
                     _isPlacingOrder
                         ? Icons.hourglass_empty
-                        : _isDeliveryAvailable
+                        : canPlace
                         ? Icons.shopping_bag_outlined
                         : Icons.warning_amber_rounded,
                     size: 20,
@@ -3499,7 +3950,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   Text(
                     _isPlacingOrder
                         ? 'Processing...'
-                        : _isDeliveryAvailable
+                        : canPlace
                         ? 'Place Order • \$${grandTotal.toStringAsFixed(2)}'
                         : 'Delivery Not Available',
                     style: GoogleFonts.poppins(
@@ -3511,6 +3962,17 @@ class _OrderScreenState extends State<OrderScreen> {
               ),
             ),
           ),
+          if (_deliveryOption == 'pickup' && !_isPlacingOrder) ...[
+            const SizedBox(height: 6),
+            Text(
+              '🏪 Pickup order — no delivery fee',
+              style: GoogleFonts.poppins(
+                fontSize: 11.5,
+                color: Colors.green[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );
