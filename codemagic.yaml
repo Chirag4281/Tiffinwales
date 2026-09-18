@@ -21,24 +21,56 @@ workflows:
         BUILD_MODE: "release"
 
     scripts:
+
+      # =========================================================
+      # Flutter Dependencies
+      # =========================================================
       - name: Get Flutter dependencies
         script: |
           flutter clean
           flutter pub get
 
+      # =========================================================
+      # CocoaPods
+      # =========================================================
       - name: Install CocoaPods
         script: |
           cd ios
           pod install --repo-update
           cd ..
 
+      # =========================================================
+      # Configure iOS Code Signing
+      # =========================================================
       - name: Configure automatic iOS code signing
         script: |
           xcode-project use-profiles
 
+      # =========================================================
+      # Verify Bundle ID and Push Notification Capability
+      # =========================================================
+      - name: Verify iOS configuration
+        script: |
+          echo "========================================"
+          echo "TiffinWales iOS Configuration"
+          echo "========================================"
+          echo "Bundle ID: $BUNDLE_ID"
+          echo "Build Mode: $BUILD_MODE"
+          echo "========================================"
+
+          grep -A2 -B2 "com.tiffinwales.app" ios/Runner.xcodeproj/project.pbxproj || true
+
+          echo "Checking OneSignal App ID..."
+          grep -A2 -B2 "1be25b22-5e27-418f-8c0a-9a68cc6c39e5" ios/Runner/Info.plist || true
+
+      # =========================================================
+      # Build IPA
+      # =========================================================
       - name: Build IPA
         script: |
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+          flutter build ipa \
+            --release \
+            --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
