@@ -38,6 +38,14 @@ target 'Runner' do
   use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # ✅ OneSignal Notification Service Extension target
+  # This is required so rich pushes (images, etc.) and delivery
+  # confirmations work on iOS.
+  target 'OneSignalNotificationServiceExtension' do
+    use_frameworks! :linkage => :static
+    pod 'OneSignalXCFramework/OneSignal', '>= 5.0.0', '< 6.0'
+  end
 end
 
 post_install do |installer|
@@ -47,6 +55,12 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+
+      # ✅ Required for OneSignal + Flutter static frameworks
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'COCOAPODS=1',
+      ]
     end
   end
 end
